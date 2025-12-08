@@ -37,26 +37,26 @@ Get input pipeline working (MediaPipe → gesture logic → system state).
 ### Tasks
 
 #### **1. Hand Tracking Setup**
-- Integrate MediaPipe Hands  
-- Extract: 21 landmarks, handedness, smoothed positions
+- [x] Integrate MediaPipe Hands  
+- [x] Extract: 21 landmarks, handedness, smoothed positions
 
 #### **2. Gestures (MVP)**
-- Pinch detection  
-- Open hand vs fist  
-- Left-hand vertical row selection  
+- [x] Pinch detection  
+- [x] Open hand vs fist  
+- [x] Left-hand vertical row selection  
 
 #### **3. System Architecture**
 Define:
 
-- gestureEngine  
-- stateStore  
-- audioEngine  
-- visualEngine  
+- [x] gestureEngine  
+- [x] stateStore  
+- [x] audioEngine  
+- [x] visualEngine  
 
 #### **4. Basic UI (2D)**
-- Simple 4×8 grid  
-- Left-hand cursor  
-- Right-hand pointer  
+- [x] Simple 4×8 grid  
+- [x] Left-hand cursor  
+- [x] Right-hand pointer  
 
 ---
 
@@ -66,11 +66,11 @@ Define:
 Make the system actually *create sound*.
 
 ### Tasks
-- Load drum samples  
-- Create 16-step sequencer  
-- Toggle beats using pinch  
-- Play/stop via hand gestures  
-- Simple visual sequencing  
+- [x] Load drum samples  
+- [x] Create 16-step sequencer  
+- [x] Toggle beats using pinch  
+- [ ] Play/stop via hand gestures  
+- [ ] Simple visual sequencing  
 
 ---
 
@@ -80,21 +80,21 @@ Make the system actually *create sound*.
 Replace 2D visuals with a 3D interface.
 
 ### Tasks
-- Build 3D scene  
-- Create 3D beat grid  
-- Add 3D hand cursors  
-- Two-hand distance → tempo  
-- Two-hand circular gesture → filter sweep  
+- [ ] Build 3D scene  
+- [ ] Create 3D beat grid  
+- [ ] Add 3D hand cursors  
+- [ ] Two-hand distance → tempo  
+- [ ] Two-hand circular gesture → filter sweep  
 
 ---
 
 ## **Week 4 — Polishing, User Testing, Demo Prep**
 
 ### Tasks
-- Smoothing, debouncing, reduce jitter  
-- Add animations and mode indicators  
-- Conduct HCI user test  
-- Create demo video and slides  
+- [ ] Smoothing, debouncing, reduce jitter  
+- [ ] Add animations and mode indicators  
+- [ ] Conduct HCI user test  
+- [ ] Create demo video and slides  
 
 ---
 
@@ -111,9 +111,9 @@ Replace 2D visuals with a 3D interface.
 
 # 🟩 Minimal Core for Guaranteed Success
 
-- Basic beat grid  
-- Gesture toggling  
-- Sequencer playback  
-- Tempo control  
-- One audio effect  
-- Simple 3D visuals  
+- [ ] Basic beat grid  
+- [ ] Gesture toggling  
+- [ ] Sequencer playback  
+- [ ] Tempo control  
+- [ ] One audio effect  
+- [ ] Simple 3D visuals  
