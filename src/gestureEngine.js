@@ -8,13 +8,17 @@ export class GestureEngine {
 
         // Volume control state - tracks pinch start position for volume adjustment
         this.volumeControlState = {
-            Left: { isPinching: false, startY: 0, startVolume: 0 },
-            Right: { isPinching: false, startY: 0, startVolume: 0 }
+            Left: { isPinching: false, startY: 0, startVolume: 0, hasMoved: false },
+            Right: { isPinching: false, startY: 0, startVolume: 0, hasMoved: false }
         };
 
         // Sensitivity: how much Y movement (0-1) changes volume
         // Lower value = more sensitive (less movement needed)
         this.volumeSensitivity = 0.3;
+
+        // Minimum movement threshold to distinguish tap (play/pause) from drag (volume)
+        // If movement is less than this, it's a tap
+        this.movementThreshold = 0.03;
     }
 
     process(results) {
@@ -40,13 +44,17 @@ export class GestureEngine {
             const state = stateStore.getState();
             const hasTrackLoaded = label === 'Left' ? state.leftTrackLoaded : state.rightTrackLoaded;
 
+            // Get volume control state for this hand
+            const volumeState = this.volumeControlState[label];
+
             // Store data for visualization
             handsData.push({
                 label,
                 landmarks,
                 gesture,
                 pinches, // { index: bool, middle: bool }
-                hasTrackLoaded
+                hasTrackLoaded,
+                isControllingVolume: volumeState.isPinching && volumeState.hasMoved
             });
 
             // Update pinch states
@@ -56,17 +64,18 @@ export class GestureEngine {
 
             // Debug logging for pinches
             if (pinches.index && !this.lastPinchState[label].index) {
-                console.log(`${label} Hand Index Pinch Detected${hasTrackLoaded ? ' - Volume Control Active' : ' - No track loaded'}`);
+                console.log(`${label} Hand Index Pinch Started`);
             }
             if (pinches.middle && !this.lastPinchState[label].middle) {
                 console.log(`${label} Hand Middle Pinch Detected`);
             }
 
             // =============================================
-            // VOLUME CONTROL: Pinch + Vertical Movement
-            // Each hand independently controls its own track
+            // PINCH HANDLING: Play/Pause OR Volume Control
+            // - Quick pinch (no/little movement) = Play/Pause
+            // - Pinch + vertical movement = Volume Control
             // =============================================
-            this.handleVolumeControl(label, landmarks, pinches);
+            this.handlePinchGesture(label, landmarks, pinches, hasTrackLoaded);
 
             this.lastPinchState[label] = pinches;
         }
@@ -109,52 +118,79 @@ export class GestureEngine {
     }
 
     /**
-     * Handle volume control via pinch + vertical movement
-     * When user pinches and moves up, volume increases
-     * When user pinches and moves down, volume decreases
+     * Handle pinch gestures for both Play/Pause and Volume Control
      * 
-     * Each hand is INDEPENDENT - Left hand controls left track, Right hand controls right track
+     * Logic:
+     * - Pinch START: Record starting position
+     * - Pinch HOLD + MOVE: Adjust volume
+     * - Pinch RELEASE + NO MOVEMENT: Toggle play/pause
+     * - Pinch RELEASE + MOVEMENT: Just end volume control (no play/pause)
      */
-    handleVolumeControl(label, landmarks, pinches) {
+    handlePinchGesture(label, landmarks, pinches, hasTrackLoaded) {
         const state = stateStore.getState();
         const volumeState = this.volumeControlState[label];
-        const isPinching = pinches.index; // Use index finger pinch for volume control
+        const isPinching = pinches.index;
 
         // Get current hand Y position (use wrist for stability)
         const currentY = landmarks[0].y;
 
-        // Volume control works regardless of whether a track is loaded
-        // This allows testing the gesture even without audio files
-
-        // Pinch just started
+        // =============================================
+        // PINCH STARTED
+        // =============================================
         if (isPinching && !volumeState.isPinching) {
             const currentVolume = label === 'Left' ? state.leftTrackVolume : state.rightTrackVolume;
             volumeState.isPinching = true;
             volumeState.startY = currentY;
             volumeState.startVolume = currentVolume;
-            console.log(`${label} Volume Control Started - Y: ${currentY.toFixed(3)}, Vol: ${currentVolume.toFixed(2)}`);
+            volumeState.hasMoved = false; // Reset movement flag
+            console.log(`${label} Pinch Started - Y: ${currentY.toFixed(3)}`);
         }
-        // Currently pinching - adjust volume based on movement
+        // =============================================
+        // PINCH HELD - Check for volume control
+        // =============================================
         else if (isPinching && volumeState.isPinching) {
-            // Calculate Y delta (positive = moved down, negative = moved up)
+            // Calculate Y delta
             const deltaY = currentY - volumeState.startY;
+            const absDeltaY = Math.abs(deltaY);
 
-            // Invert because moving UP should INCREASE volume
-            // deltaY is negative when moving up, so we invert
-            const volumeChange = -deltaY / this.volumeSensitivity;
+            // Check if moved enough to be volume control
+            if (absDeltaY > this.movementThreshold) {
+                volumeState.hasMoved = true;
 
-            // Calculate new volume (clamped between 0 and 1)
-            let newVolume = volumeState.startVolume + volumeChange;
-            newVolume = Math.max(0, Math.min(1, newVolume));
+                // Calculate volume change
+                const volumeChange = -deltaY / this.volumeSensitivity;
+                let newVolume = volumeState.startVolume + volumeChange;
+                newVolume = Math.max(0, Math.min(1, newVolume));
 
-            // Apply volume change
-            audioEngine.setTrackVolume(label, newVolume);
+                // Apply volume change
+                audioEngine.setTrackVolume(label, newVolume);
+            }
         }
-        // Pinch released
+        // =============================================
+        // PINCH RELEASED
+        // =============================================
         else if (!isPinching && volumeState.isPinching) {
             volumeState.isPinching = false;
-            const finalVolume = label === 'Left' ? state.leftTrackVolume : state.rightTrackVolume;
-            console.log(`${label} Volume Control Ended - Final Vol: ${finalVolume.toFixed(2)}`);
+
+            // If no significant movement occurred, it's a TAP = Play/Pause toggle
+            if (!volumeState.hasMoved) {
+                console.log(`${label} Pinch Tap Detected - Toggling Play/Pause`);
+
+                // Toggle play/pause for this hand's track
+                if (hasTrackLoaded) {
+                    audioEngine.toggleTrack(label);
+                    console.log(`${label} Track Toggled`);
+                } else {
+                    console.log(`${label} No track loaded - cannot toggle`);
+                }
+            } else {
+                // Movement occurred, it was volume control
+                const finalVolume = label === 'Left' ? state.leftTrackVolume : state.rightTrackVolume;
+                console.log(`${label} Volume Control Ended - Final Vol: ${(finalVolume * 100).toFixed(0)}%`);
+            }
+
+            // Reset movement flag
+            volumeState.hasMoved = false;
         }
     }
 }

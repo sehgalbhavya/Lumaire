@@ -80,6 +80,14 @@ stateStore.subscribe((state) => {
     const rightPercent = Math.round(state.rightTrackVolume * 100);
     rightVolumeDisplay.textContent = `Vol: ${rightPercent}%`;
     rightVolumeDisplay.style.color = getVolumeColor(state.rightTrackVolume);
+
+    // Update play button text based on playing state (for gesture-triggered changes)
+    if (state.leftTrackLoaded) {
+        leftPlayBtn.textContent = state.leftTrackPlaying ? '⏸️ Pause Left' : '▶️ Play Left';
+    }
+    if (state.rightTrackLoaded) {
+        rightPlayBtn.textContent = state.rightTrackPlaying ? '⏸️ Pause Right' : '▶️ Play Right';
+    }
 });
 
 function getVolumeColor(volume) {

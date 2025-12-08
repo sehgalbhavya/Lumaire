@@ -14,6 +14,8 @@ class StateStore {
             rightTrackVolume: 0.7, // 0 to 1
             leftTrackLoaded: false,
             rightTrackLoaded: false,
+            leftTrackPlaying: false,
+            rightTrackPlaying: false,
         };
         this.listeners = new Set();
     }

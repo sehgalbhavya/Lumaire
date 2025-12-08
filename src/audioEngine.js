@@ -11,6 +11,12 @@ export class AudioEngine {
         this.leftTrackPlayer = null;
         this.rightTrackPlayer = null;
 
+        // Pause state tracking for resume functionality
+        this.pauseState = {
+            Left: { isPaused: false, pauseTime: 0, startTime: 0 },
+            Right: { isPaused: false, pauseTime: 0, startTime: 0 }
+        };
+
         // Subscribe to state changes
         stateStore.subscribe((state) => {
             this.handleStateChange(state);
@@ -69,13 +75,13 @@ export class AudioEngine {
         Tone.Transport.bpm.value = state.tempo;
 
         // Handle Track Volumes (convert 0-1 to dB scale)
+        // Map 0-1 to -40dB to 0dB
         if (this.leftTrackPlayer) {
-            // Map 0-1 to -40dB to 0dB
-            const leftDb = state.leftTrackVolume === 0 ? -Infinity : (state.leftTrackVolume - 1) * 40;
+            const leftDb = state.leftTrackVolume === 0 ? -Infinity : -40 * (1 - state.leftTrackVolume);
             this.leftTrackPlayer.volume.value = leftDb;
         }
         if (this.rightTrackPlayer) {
-            const rightDb = state.rightTrackVolume === 0 ? -Infinity : (state.rightTrackVolume - 1) * 40;
+            const rightDb = state.rightTrackVolume === 0 ? -Infinity : -40 * (1 - state.rightTrackVolume);
             this.rightTrackPlayer.volume.value = rightDb;
         }
     }
@@ -136,56 +142,95 @@ export class AudioEngine {
      * @param {'Left'|'Right'} hand - Which hand to associate the track with
      */
     async loadTrack(file, hand) {
+        // Ensure audio context is started
         if (!this.initialized) {
             await this.init();
         }
 
-        // Create object URL from file
-        const url = URL.createObjectURL(file);
-
-        // Create new player
-        const player = new Tone.Player({
-            url: url,
-            loop: true,
-            autostart: false,
-            onload: () => {
-                console.log(`${hand} track loaded: ${file.name}`);
-            }
-        }).toDestination();
-
-        // Stop and dispose of existing player if any
-        if (hand === 'Left') {
-            if (this.leftTrackPlayer) {
-                this.leftTrackPlayer.stop();
-                this.leftTrackPlayer.dispose();
-            }
-            this.leftTrackPlayer = player;
-            stateStore.setState({ leftTrackLoaded: true });
-        } else {
-            if (this.rightTrackPlayer) {
-                this.rightTrackPlayer.stop();
-                this.rightTrackPlayer.dispose();
-            }
-            this.rightTrackPlayer = player;
-            stateStore.setState({ rightTrackLoaded: true });
+        // Make sure Tone.js context is running
+        if (Tone.context.state !== 'running') {
+            await Tone.start();
+            console.log('Tone.js audio context started');
         }
 
-        // Apply current volume
-        const state = stateStore.getState();
-        const volume = hand === 'Left' ? state.leftTrackVolume : state.rightTrackVolume;
-        const db = volume === 0 ? -Infinity : (volume - 1) * 40;
-        player.volume.value = db;
+        // Create object URL from file
+        const url = URL.createObjectURL(file);
+        console.log(`Loading ${hand} track from: ${url}`);
+
+        // Stop and dispose of existing player if any
+        if (hand === 'Left' && this.leftTrackPlayer) {
+            this.leftTrackPlayer.stop();
+            this.leftTrackPlayer.dispose();
+            this.leftTrackPlayer = null;
+        } else if (hand === 'Right' && this.rightTrackPlayer) {
+            this.rightTrackPlayer.stop();
+            this.rightTrackPlayer.dispose();
+            this.rightTrackPlayer = null;
+        }
+
+        // Reset pause state for this track
+        this.pauseState[hand] = { isPaused: false, pauseTime: 0, startTime: 0 };
+
+        // Create new player with promise-based loading
+        return new Promise((resolve, reject) => {
+            const player = new Tone.Player({
+                url: url,
+                loop: true,
+                autostart: false,
+                onload: () => {
+                    console.log(`${hand} track loaded successfully: ${file.name}`);
+
+                    // Store the player
+                    if (hand === 'Left') {
+                        this.leftTrackPlayer = player;
+                        stateStore.setState({ leftTrackLoaded: true });
+                    } else {
+                        this.rightTrackPlayer = player;
+                        stateStore.setState({ rightTrackLoaded: true });
+                    }
+
+                    // Apply current volume
+                    const state = stateStore.getState();
+                    const volume = hand === 'Left' ? state.leftTrackVolume : state.rightTrackVolume;
+                    // Map 0-1 to -40dB to 0dB (logarithmic scale)
+                    const db = volume === 0 ? -Infinity : -40 * (1 - volume);
+                    player.volume.value = db;
+                    console.log(`${hand} track volume set to ${db}dB (${(volume * 100).toFixed(0)}%)`);
+
+                    resolve(player);
+                },
+                onerror: (error) => {
+                    console.error(`Error loading ${hand} track:`, error);
+                    reject(error);
+                }
+            }).toDestination();
+        });
     }
 
     /**
      * Start playing a track
      * @param {'Left'|'Right'} hand - Which hand's track to play
      */
-    playTrack(hand) {
+    async playTrack(hand) {
+        // Ensure audio context is running
+        if (Tone.context.state !== 'running') {
+            await Tone.start();
+            console.log('Tone.js audio context started before playback');
+        }
+
         const player = hand === 'Left' ? this.leftTrackPlayer : this.rightTrackPlayer;
+        console.log(`playTrack called for ${hand}:`, player ? `loaded=${player.loaded}, state=${player.state}` : 'no player');
+
         if (player && player.loaded) {
             player.start();
-            console.log(`${hand} track started`);
+            if (hand === 'Left') {
+                stateStore.setState({ leftTrackPlaying: true });
+            } else {
+                stateStore.setState({ rightTrackPlaying: true });
+            }
+            console.log(`${hand} track started playing`);
+        } else {
+            console.warn(`Cannot play ${hand} track - player not ready`);
         }
     }
 
@@ -197,22 +242,74 @@ export class AudioEngine {
         const player = hand === 'Left' ? this.leftTrackPlayer : this.rightTrackPlayer;
         if (player) {
             player.stop();
+            if (hand === 'Left') {
+                stateStore.setState({ leftTrackPlaying: false });
+            } else {
+                stateStore.setState({ rightTrackPlaying: false });
+            }
             console.log(`${hand} track stopped`);
         }
     }
 
     /**
-     * Toggle play/stop for a track
+     * Toggle play/pause for a track with proper resume functionality
      * @param {'Left'|'Right'} hand - Which hand's track to toggle
      */
-    toggleTrack(hand) {
+    async toggleTrack(hand) {
+        // Ensure audio context is running
+        if (Tone.context.state !== 'running') {
+            await Tone.start();
+            console.log('Tone.js audio context started before toggle');
+        }
+
         const player = hand === 'Left' ? this.leftTrackPlayer : this.rightTrackPlayer;
+        const pauseState = this.pauseState[hand];
+
+        console.log(`toggleTrack called for ${hand}:`, player ? `loaded=${player.loaded}, state=${player.state}` : 'no player');
+
         if (player && player.loaded) {
             if (player.state === 'started') {
+                // PAUSE: Save current position and stop
+                const elapsed = Tone.now() - pauseState.startTime;
+                pauseState.pauseTime = elapsed;
+                pauseState.isPaused = true;
+
                 player.stop();
+
+                if (hand === 'Left') {
+                    stateStore.setState({ leftTrackPlaying: false });
+                } else {
+                    stateStore.setState({ rightTrackPlaying: false });
+                }
+                console.log(`${hand} track paused at ${elapsed.toFixed(2)}s`);
             } else {
-                player.start();
+                // RESUME/PLAY: Start from saved position
+                let offset = 0;
+
+                if (pauseState.isPaused && pauseState.pauseTime > 0) {
+                    // Calculate offset within the track duration (for looping)
+                    const duration = player.buffer.duration;
+                    offset = pauseState.pauseTime % duration;
+                    console.log(`${hand} track resuming from ${offset.toFixed(2)}s (duration: ${duration.toFixed(2)}s)`);
+                } else {
+                    console.log(`${hand} track starting from beginning`);
+                }
+
+                // Record the start time (adjusted for offset)
+                pauseState.startTime = Tone.now() - offset;
+                pauseState.isPaused = false;
+
+                // Start playback with offset
+                player.start(undefined, offset);
+
+                if (hand === 'Left') {
+                    stateStore.setState({ leftTrackPlaying: true });
+                } else {
+                    stateStore.setState({ rightTrackPlaying: true });
+                }
             }
+        } else {
+            console.warn(`Cannot toggle ${hand} track - player not ready`);
         }
     }
 

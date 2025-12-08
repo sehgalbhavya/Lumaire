@@ -66,10 +66,10 @@ export class VisualEngine {
         ctx.save();
 
         // Left Track Indicator (left side of screen)
-        this.drawTrackIndicator(ctx, 50, height / 2, 'Left', state.leftTrackLoaded, state.leftTrackVolume);
+        this.drawTrackIndicator(ctx, 50, height / 2, 'Left', state.leftTrackLoaded, state.leftTrackVolume, state.leftTrackPlaying);
 
         // Right Track Indicator (right side of screen)
-        this.drawTrackIndicator(ctx, width - 50, height / 2, 'Right', state.rightTrackLoaded, state.rightTrackVolume);
+        this.drawTrackIndicator(ctx, width - 50, height / 2, 'Right', state.rightTrackLoaded, state.rightTrackVolume, state.rightTrackPlaying);
 
         ctx.restore();
     }
@@ -77,7 +77,7 @@ export class VisualEngine {
     /**
      * Draw a single track's volume indicator
      */
-    drawTrackIndicator(ctx, x, y, label, isLoaded, volume) {
+    drawTrackIndicator(ctx, x, y, label, isLoaded, volume, isPlaying) {
         const barWidth = 30;
         const barHeight = 200;
         const barY = y - barHeight / 2;
@@ -86,16 +86,22 @@ export class VisualEngine {
         ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
         ctx.fillRect(x - barWidth / 2, barY, barWidth, barHeight);
 
-        // Border - always active color since volume control works without tracks
-        ctx.strokeStyle = 'rgba(56, 239, 125, 0.8)';
-        ctx.lineWidth = 2;
+        // Border - different color when playing
+        ctx.strokeStyle = isPlaying ? 'rgba(255, 215, 0, 0.9)' : 'rgba(56, 239, 125, 0.8)';
+        ctx.lineWidth = isPlaying ? 3 : 2;
         ctx.strokeRect(x - barWidth / 2, barY, barWidth, barHeight);
 
         // Volume fill (from bottom up) - always show, not just when loaded
         const fillHeight = volume * barHeight;
         const gradient = ctx.createLinearGradient(0, barY + barHeight, 0, barY);
-        gradient.addColorStop(0, '#11998e');
-        gradient.addColorStop(1, '#38ef7d');
+
+        if (isPlaying) {
+            gradient.addColorStop(0, '#ffd700');
+            gradient.addColorStop(1, '#ff8c00');
+        } else {
+            gradient.addColorStop(0, '#11998e');
+            gradient.addColorStop(1, '#38ef7d');
+        }
 
         ctx.fillStyle = gradient;
         ctx.fillRect(x - barWidth / 2 + 2, barY + barHeight - fillHeight, barWidth - 4, fillHeight);
@@ -107,15 +113,27 @@ export class VisualEngine {
         ctx.fillText(`${Math.round(volume * 100)}%`, x, barY - 10);
 
         // Label
-        ctx.fillStyle = '#38ef7d';
+        ctx.fillStyle = isPlaying ? '#ffd700' : '#38ef7d';
         ctx.font = 'bold 16px Arial';
         ctx.textAlign = 'center';
         ctx.fillText(label, x, barY + barHeight + 25);
 
-        // Status
-        ctx.font = '12px Arial';
-        ctx.fillStyle = isLoaded ? '#38ef7d' : '#888';
-        ctx.fillText(isLoaded ? '🎵 TRACK LOADED' : '(no track)', x, barY + barHeight + 45);
+        // Play/Pause Status
+        if (isLoaded) {
+            ctx.font = 'bold 14px Arial';
+            ctx.fillStyle = isPlaying ? '#ffd700' : '#38ef7d';
+            ctx.fillText(isPlaying ? '▶️ PLAYING' : '⏸️ PAUSED', x, barY + barHeight + 45);
+        } else {
+            ctx.font = '12px Arial';
+            ctx.fillStyle = '#888';
+            ctx.fillText('(no track)', x, barY + barHeight + 45);
+        }
+
+        // Hint for pinch gesture
+        ctx.font = '10px Arial';
+        ctx.fillStyle = '#666';
+        ctx.fillText('Pinch: Play/Pause', x, barY + barHeight + 65);
+        ctx.fillText('Pinch+Move: Volume', x, barY + barHeight + 80);
     }
 
     drawHandInfo(handsData, width, height) {
