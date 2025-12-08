@@ -7,6 +7,10 @@ export class AudioEngine {
         this.synth = null;
         this.instruments = {};
 
+        // User-uploaded track players
+        this.leftTrackPlayer = null;
+        this.rightTrackPlayer = null;
+
         // Subscribe to state changes
         stateStore.subscribe((state) => {
             this.handleStateChange(state);
@@ -63,6 +67,17 @@ export class AudioEngine {
 
         // Handle Tempo
         Tone.Transport.bpm.value = state.tempo;
+
+        // Handle Track Volumes (convert 0-1 to dB scale)
+        if (this.leftTrackPlayer) {
+            // Map 0-1 to -40dB to 0dB
+            const leftDb = state.leftTrackVolume === 0 ? -Infinity : (state.leftTrackVolume - 1) * 40;
+            this.leftTrackPlayer.volume.value = leftDb;
+        }
+        if (this.rightTrackPlayer) {
+            const rightDb = state.rightTrackVolume === 0 ? -Infinity : (state.rightTrackVolume - 1) * 40;
+            this.rightTrackPlayer.volume.value = rightDb;
+        }
     }
 
     startSequencer() {
@@ -112,6 +127,106 @@ export class AudioEngine {
                     instrument.triggerAttackRelease("G2", "8n", time);
                     break;
             }
+        }
+    }
+
+    /**
+     * Load an audio track from a File object
+     * @param {File} file - The audio file to load
+     * @param {'Left'|'Right'} hand - Which hand to associate the track with
+     */
+    async loadTrack(file, hand) {
+        if (!this.initialized) {
+            await this.init();
+        }
+
+        // Create object URL from file
+        const url = URL.createObjectURL(file);
+
+        // Create new player
+        const player = new Tone.Player({
+            url: url,
+            loop: true,
+            autostart: false,
+            onload: () => {
+                console.log(`${hand} track loaded: ${file.name}`);
+            }
+        }).toDestination();
+
+        // Stop and dispose of existing player if any
+        if (hand === 'Left') {
+            if (this.leftTrackPlayer) {
+                this.leftTrackPlayer.stop();
+                this.leftTrackPlayer.dispose();
+            }
+            this.leftTrackPlayer = player;
+            stateStore.setState({ leftTrackLoaded: true });
+        } else {
+            if (this.rightTrackPlayer) {
+                this.rightTrackPlayer.stop();
+                this.rightTrackPlayer.dispose();
+            }
+            this.rightTrackPlayer = player;
+            stateStore.setState({ rightTrackLoaded: true });
+        }
+
+        // Apply current volume
+        const state = stateStore.getState();
+        const volume = hand === 'Left' ? state.leftTrackVolume : state.rightTrackVolume;
+        const db = volume === 0 ? -Infinity : (volume - 1) * 40;
+        player.volume.value = db;
+    }
+
+    /**
+     * Start playing a track
+     * @param {'Left'|'Right'} hand - Which hand's track to play
+     */
+    playTrack(hand) {
+        const player = hand === 'Left' ? this.leftTrackPlayer : this.rightTrackPlayer;
+        if (player && player.loaded) {
+            player.start();
+            console.log(`${hand} track started`);
+        }
+    }
+
+    /**
+     * Stop playing a track
+     * @param {'Left'|'Right'} hand - Which hand's track to stop
+     */
+    stopTrack(hand) {
+        const player = hand === 'Left' ? this.leftTrackPlayer : this.rightTrackPlayer;
+        if (player) {
+            player.stop();
+            console.log(`${hand} track stopped`);
+        }
+    }
+
+    /**
+     * Toggle play/stop for a track
+     * @param {'Left'|'Right'} hand - Which hand's track to toggle
+     */
+    toggleTrack(hand) {
+        const player = hand === 'Left' ? this.leftTrackPlayer : this.rightTrackPlayer;
+        if (player && player.loaded) {
+            if (player.state === 'started') {
+                player.stop();
+            } else {
+                player.start();
+            }
+        }
+    }
+
+    /**
+     * Set volume for a track
+     * @param {'Left'|'Right'} hand - Which hand's track
+     * @param {number} volume - Volume from 0 to 1
+     */
+    setTrackVolume(hand, volume) {
+        const clampedVolume = Math.max(0, Math.min(1, volume));
+        if (hand === 'Left') {
+            stateStore.setState({ leftTrackVolume: clampedVolume });
+        } else {
+            stateStore.setState({ rightTrackVolume: clampedVolume });
         }
     }
 }

@@ -1,9 +1,20 @@
 import { stateStore } from './stateStore';
+import { audioEngine } from './audioEngine';
 
 export class GestureEngine {
     constructor() {
         this.pinchThreshold = 0.05;
         this.lastPinchState = { Left: { index: false, middle: false }, Right: { index: false, middle: false } };
+
+        // Volume control state - tracks pinch start position for volume adjustment
+        this.volumeControlState = {
+            Left: { isPinching: false, startY: 0, startVolume: 0 },
+            Right: { isPinching: false, startY: 0, startVolume: 0 }
+        };
+
+        // Sensitivity: how much Y movement (0-1) changes volume
+        // Lower value = more sensitive (less movement needed)
+        this.volumeSensitivity = 0.3;
     }
 
     process(results) {
@@ -25,70 +36,41 @@ export class GestureEngine {
             // 2. Open vs Fist
             const gesture = this.detectHandPose(landmarks);
 
-            // 3. Logic Mapping
-            if (label === 'Left') {
-                this.handleRowSelection(landmarks);
-            } else if (label === 'Right') {
-                this.handleColumnSelection(landmarks);
-            }
+            // 3. Check if this hand has a track loaded
+            const state = stateStore.getState();
+            const hasTrackLoaded = label === 'Left' ? state.leftTrackLoaded : state.rightTrackLoaded;
 
             // Store data for visualization
             handsData.push({
                 label,
                 landmarks,
                 gesture,
-                pinches // { index: bool, middle: bool }
+                pinches, // { index: bool, middle: bool }
+                hasTrackLoaded
             });
 
             // Update pinch states
-            // Initialize if not exists
             if (!this.lastPinchState[label]) {
                 this.lastPinchState[label] = { index: false, middle: false };
             }
 
-            // Handle Right Hand Index Pinch -> Toggle Beat
-            if (label === 'Right' && pinches.index && !this.lastPinchState[label].index) {
-                console.log(`${label} Hand Index Pinch Detected - Toggling Beat`);
-                this.toggleBeat();
-            }
-
+            // Debug logging for pinches
             if (pinches.index && !this.lastPinchState[label].index) {
-                console.log(`${label} Hand Index Pinch Detected`);
+                console.log(`${label} Hand Index Pinch Detected${hasTrackLoaded ? ' - Volume Control Active' : ' - No track loaded'}`);
             }
             if (pinches.middle && !this.lastPinchState[label].middle) {
                 console.log(`${label} Hand Middle Pinch Detected`);
             }
 
+            // =============================================
+            // VOLUME CONTROL: Pinch + Vertical Movement
+            // Each hand independently controls its own track
+            // =============================================
+            this.handleVolumeControl(label, landmarks, pinches);
+
             this.lastPinchState[label] = pinches;
         }
         return handsData;
-    }
-
-    toggleBeat() {
-        const state = stateStore.getState();
-        const { selectedRow, selectedColumn, beatGrid } = state;
-
-        // Create a deep copy of the grid to avoid direct mutation
-        const newGrid = beatGrid.map(row => [...row]);
-
-        // Toggle the cell
-        // Note: selectedColumn is 0-7 (8 cols), but sequencer is 16 steps.
-        // We need to decide mapping. 
-        // Option A: 8 cols = 8 steps (1 bar of 8th notes).
-        // Option B: 8 cols = 16 steps (each col is 2 steps? No, that's confusing).
-        // Option C: We just use the first 8 steps for now?
-        // Let's assume 1 col = 1 step for now, so we only edit the first 8 steps.
-        // OR, we can map 8 cols to 16 steps by using 2 pages, but let's keep it simple.
-        // Let's map col 0-7 to step 0-7.
-
-        // Wait, if we want 16 steps, we need 16 columns visually or a way to scroll.
-        // Given "Simple 4x8 grid" in plan, maybe we only support 8 steps for MVP?
-        // Or maybe each column represents 2 steps (16th notes)? 
-        // Let's stick to 1:1 mapping for now. Col 0 = Step 0.
-
-        newGrid[selectedRow][selectedColumn] = !newGrid[selectedRow][selectedColumn];
-
-        stateStore.setState({ beatGrid: newGrid });
     }
 
     detectPinches(landmarks) {
@@ -126,40 +108,53 @@ export class GestureEngine {
         return curledCount >= 3 ? 'Closed' : 'Open';
     }
 
-    handleRowSelection(landmarks) {
-        const y = landmarks[5].y;
-        const numRows = 4;
-        const clampedY = Math.max(0, Math.min(1, y));
-        const row = Math.floor(clampedY * numRows);
-        const finalRow = Math.min(numRows - 1, row);
+    /**
+     * Handle volume control via pinch + vertical movement
+     * When user pinches and moves up, volume increases
+     * When user pinches and moves down, volume decreases
+     * 
+     * Each hand is INDEPENDENT - Left hand controls left track, Right hand controls right track
+     */
+    handleVolumeControl(label, landmarks, pinches) {
+        const state = stateStore.getState();
+        const volumeState = this.volumeControlState[label];
+        const isPinching = pinches.index; // Use index finger pinch for volume control
 
-        const currentState = stateStore.getState();
-        if (currentState.selectedRow !== finalRow) {
-            stateStore.setState({ selectedRow: finalRow });
+        // Get current hand Y position (use wrist for stability)
+        const currentY = landmarks[0].y;
+
+        // Volume control works regardless of whether a track is loaded
+        // This allows testing the gesture even without audio files
+
+        // Pinch just started
+        if (isPinching && !volumeState.isPinching) {
+            const currentVolume = label === 'Left' ? state.leftTrackVolume : state.rightTrackVolume;
+            volumeState.isPinching = true;
+            volumeState.startY = currentY;
+            volumeState.startVolume = currentVolume;
+            console.log(`${label} Volume Control Started - Y: ${currentY.toFixed(3)}, Vol: ${currentVolume.toFixed(2)}`);
         }
-    }
+        // Currently pinching - adjust volume based on movement
+        else if (isPinching && volumeState.isPinching) {
+            // Calculate Y delta (positive = moved down, negative = moved up)
+            const deltaY = currentY - volumeState.startY;
 
-    handleColumnSelection(landmarks) {
-        // Use Index Finger MCP (5) or Tip (8) for X position
-        const x = landmarks[8].x;
+            // Invert because moving UP should INCREASE volume
+            // deltaY is negative when moving up, so we invert
+            const volumeChange = -deltaY / this.volumeSensitivity;
 
-        // Map x (0 to 1) to columns (0 to 7)
-        // Note: x is normalized. 0 is left, 1 is right.
-        // Since we mirror the video, 0 (left in video) is actually right side of screen?
-        // Wait, MediaPipe coords: x increases from left to right of the IMAGE.
-        // If we mirror the image, the visual left is image right (x=1).
-        // So visual x = 1 - x.
-        // Let's map visual x to columns.
+            // Calculate new volume (clamped between 0 and 1)
+            let newVolume = volumeState.startVolume + volumeChange;
+            newVolume = Math.max(0, Math.min(1, newVolume));
 
-        const visualX = 1 - x;
-        const numCols = 8;
-        const clampedX = Math.max(0, Math.min(1, visualX));
-        const col = Math.floor(clampedX * numCols);
-        const finalCol = Math.min(numCols - 1, col);
-
-        const currentState = stateStore.getState();
-        if (currentState.selectedColumn !== finalCol) {
-            stateStore.setState({ selectedColumn: finalCol });
+            // Apply volume change
+            audioEngine.setTrackVolume(label, newVolume);
+        }
+        // Pinch released
+        else if (!isPinching && volumeState.isPinching) {
+            volumeState.isPinching = false;
+            const finalVolume = label === 'Left' ? state.leftTrackVolume : state.rightTrackVolume;
+            console.log(`${label} Volume Control Ended - Final Vol: ${finalVolume.toFixed(2)}`);
         }
     }
 }

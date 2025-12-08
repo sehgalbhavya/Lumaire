@@ -12,6 +12,24 @@
   <div id="app">
     <video id="input_video" style="display: none;"></video>
     <canvas id="output_canvas"></canvas>
+
+    <!-- Track Upload Panel -->
+    <div id="track-panel">
+      <h3>🎵 Track Controls</h3>
+      <div class="track-control">
+        <label>Left Hand Track:</label>
+        <input type="file" id="left-track-input" accept="audio/*">
+        <button id="left-track-play" disabled>▶️ Play</button>
+        <div id="left-volume-display" class="volume-display">Vol: 70%</div>
+      </div>
+      <div class="track-control">
+        <label>Right Hand Track:</label>
+        <input type="file" id="right-track-input" accept="audio/*">
+        <button id="right-track-play" disabled>▶️ Play</button>
+        <div id="right-volume-display" class="volume-display">Vol: 70%</div>
+      </div>
+      <p class="hint">📌 Pinch + move up/down to control volume</p>
+    </div>
   </div>
   <script type="module" src="/src/main.js"></script>
 </body>

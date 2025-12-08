@@ -9,6 +9,11 @@ class StateStore {
             selectedRow: 0,
             selectedColumn: 0,
             mode: "edit", // "edit" | "tempo" | "effects"
+            // Track-related state
+            leftTrackVolume: 0.7, // 0 to 1
+            rightTrackVolume: 0.7, // 0 to 1
+            leftTrackLoaded: false,
+            rightTrackLoaded: false,
         };
         this.listeners = new Set();
     }
