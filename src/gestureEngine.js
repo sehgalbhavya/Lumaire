@@ -6,18 +6,19 @@ export class GestureEngine {
         this.pinchThreshold = 0.05;
         this.lastPinchState = { Left: { index: false, middle: false }, Right: { index: false, middle: false } };
 
-        // Volume control state - tracks pinch start position for volume adjustment
-        this.volumeControlState = {
-            Left: { isPinching: false, startY: 0, startVolume: 0, hasMoved: false },
-            Right: { isPinching: false, startY: 0, startVolume: 0, hasMoved: false }
+        // Control state tracking for each hand
+        this.controlState = {
+            // Right hand: Master volume control
+            Right: { isPinching: false, startY: 0, startValue: 0, hasMoved: false },
+            // Left hand: Crossfader control
+            Left: { isPinching: false, startX: 0, startValue: 0, hasMoved: false }
         };
 
-        // Sensitivity: how much Y movement (0-1) changes volume
-        // Lower value = more sensitive (less movement needed)
-        this.volumeSensitivity = 0.3;
+        // Sensitivity settings
+        this.volumeSensitivity = 0.3;  // For master volume (vertical movement)
+        this.crossfaderSensitivity = 0.5;  // For crossfader (horizontal movement)
 
-        // Minimum movement threshold to distinguish tap (play/pause) from drag (volume)
-        // If movement is less than this, it's a tap
+        // Minimum movement threshold to distinguish tap from drag
         this.movementThreshold = 0.03;
     }
 
@@ -25,6 +26,7 @@ export class GestureEngine {
         if (!results.multiHandLandmarks || !results.multiHandedness) return [];
 
         const handsData = [];
+        const state = stateStore.getState();
 
         for (let i = 0; i < results.multiHandLandmarks.length; i++) {
             const landmarks = results.multiHandLandmarks[i];
@@ -34,27 +36,23 @@ export class GestureEngine {
             const rawLabel = classification.label;
             const label = rawLabel === 'Left' ? 'Right' : 'Left';
 
-            // 1. Pinch Detection (Index and Middle)
+            // 1. Pinch Detection
             const pinches = this.detectPinches(landmarks);
 
             // 2. Open vs Fist
             const gesture = this.detectHandPose(landmarks);
 
-            // 3. Check if this hand has a track loaded
-            const state = stateStore.getState();
-            const hasTrackLoaded = label === 'Left' ? state.leftTrackLoaded : state.rightTrackLoaded;
-
-            // Get volume control state for this hand
-            const volumeState = this.volumeControlState[label];
+            // Get control state for this hand
+            const controlState = this.controlState[label];
 
             // Store data for visualization
             handsData.push({
                 label,
                 landmarks,
                 gesture,
-                pinches, // { index: bool, middle: bool }
-                hasTrackLoaded,
-                isControllingVolume: volumeState.isPinching && volumeState.hasMoved
+                pinches,
+                isControlling: controlState.isPinching && controlState.hasMoved,
+                controlType: label === 'Right' ? 'Master Volume' : 'Crossfader'
             });
 
             // Update pinch states
@@ -66,16 +64,17 @@ export class GestureEngine {
             if (pinches.index && !this.lastPinchState[label].index) {
                 console.log(`${label} Hand Index Pinch Started`);
             }
-            if (pinches.middle && !this.lastPinchState[label].middle) {
-                console.log(`${label} Hand Middle Pinch Detected`);
-            }
 
             // =============================================
-            // PINCH HANDLING: Play/Pause OR Volume Control
-            // - Quick pinch (no/little movement) = Play/Pause
-            // - Pinch + vertical movement = Volume Control
+            // HAND-SPECIFIC CONTROLS
             // =============================================
-            this.handlePinchGesture(label, landmarks, pinches, hasTrackLoaded);
+            if (label === 'Right') {
+                // RIGHT HAND: Play/Pause (tap) + Master Volume (drag up/down)
+                this.handleRightHandGesture(landmarks, pinches);
+            } else {
+                // LEFT HAND: Crossfader control (drag left/right)
+                this.handleLeftHandGesture(landmarks, pinches);
+            }
 
             this.lastPinchState[label] = pinches;
         }
@@ -118,17 +117,13 @@ export class GestureEngine {
     }
 
     /**
-     * Handle pinch gestures for both Play/Pause and Volume Control
-     * 
-     * Logic:
-     * - Pinch START: Record starting position
-     * - Pinch HOLD + MOVE: Adjust volume
-     * - Pinch RELEASE + NO MOVEMENT: Toggle play/pause
-     * - Pinch RELEASE + MOVEMENT: Just end volume control (no play/pause)
+     * RIGHT HAND CONTROLS:
+     * - Quick pinch (tap) = Toggle Play/Pause for ALL tracks
+     * - Pinch + UP/DOWN = Master Volume control
      */
-    handlePinchGesture(label, landmarks, pinches, hasTrackLoaded) {
+    handleRightHandGesture(landmarks, pinches) {
         const state = stateStore.getState();
-        const volumeState = this.volumeControlState[label];
+        const controlState = this.controlState.Right;
         const isPinching = pinches.index;
 
         // Get current hand Y position (use wrist for stability)
@@ -137,60 +132,114 @@ export class GestureEngine {
         // =============================================
         // PINCH STARTED
         // =============================================
-        if (isPinching && !volumeState.isPinching) {
-            const currentVolume = label === 'Left' ? state.leftTrackVolume : state.rightTrackVolume;
-            volumeState.isPinching = true;
-            volumeState.startY = currentY;
-            volumeState.startVolume = currentVolume;
-            volumeState.hasMoved = false; // Reset movement flag
-            console.log(`${label} Pinch Started - Y: ${currentY.toFixed(3)}`);
+        if (isPinching && !controlState.isPinching) {
+            controlState.isPinching = true;
+            controlState.startY = currentY;
+            controlState.startValue = state.masterVolume;
+            controlState.hasMoved = false;
+            console.log(`Right Hand: Pinch Started - Y: ${currentY.toFixed(3)}, Master Vol: ${(state.masterVolume * 100).toFixed(0)}%`);
         }
         // =============================================
-        // PINCH HELD - Check for volume control
+        // PINCH HELD - Check for master volume control
         // =============================================
-        else if (isPinching && volumeState.isPinching) {
-            // Calculate Y delta
-            const deltaY = currentY - volumeState.startY;
+        else if (isPinching && controlState.isPinching) {
+            const deltaY = currentY - controlState.startY;
             const absDeltaY = Math.abs(deltaY);
 
-            // Check if moved enough to be volume control
             if (absDeltaY > this.movementThreshold) {
-                volumeState.hasMoved = true;
+                controlState.hasMoved = true;
 
-                // Calculate volume change
+                // Calculate volume change (up = increase, down = decrease)
                 const volumeChange = -deltaY / this.volumeSensitivity;
-                let newVolume = volumeState.startVolume + volumeChange;
+                let newVolume = controlState.startValue + volumeChange;
                 newVolume = Math.max(0, Math.min(1, newVolume));
 
-                // Apply volume change
-                audioEngine.setTrackVolume(label, newVolume);
+                audioEngine.setMasterVolume(newVolume);
             }
         }
         // =============================================
         // PINCH RELEASED
         // =============================================
-        else if (!isPinching && volumeState.isPinching) {
-            volumeState.isPinching = false;
+        else if (!isPinching && controlState.isPinching) {
+            controlState.isPinching = false;
 
-            // If no significant movement occurred, it's a TAP = Play/Pause toggle
-            if (!volumeState.hasMoved) {
-                console.log(`${label} Pinch Tap Detected - Toggling Play/Pause`);
-
-                // Toggle play/pause for this hand's track
-                if (hasTrackLoaded) {
-                    audioEngine.toggleTrack(label);
-                    console.log(`${label} Track Toggled`);
-                } else {
-                    console.log(`${label} No track loaded - cannot toggle`);
-                }
+            if (!controlState.hasMoved) {
+                // TAP = Toggle Play/Pause for ALL tracks
+                console.log(`Right Hand: Tap Detected - Toggling ALL tracks Play/Pause`);
+                audioEngine.toggleAllTracks();
             } else {
-                // Movement occurred, it was volume control
-                const finalVolume = label === 'Left' ? state.leftTrackVolume : state.rightTrackVolume;
-                console.log(`${label} Volume Control Ended - Final Vol: ${(finalVolume * 100).toFixed(0)}%`);
+                // Movement occurred, it was master volume control
+                const finalVolume = stateStore.getState().masterVolume;
+                console.log(`Right Hand: Master Volume set to ${(finalVolume * 100).toFixed(0)}%`);
             }
 
-            // Reset movement flag
-            volumeState.hasMoved = false;
+            controlState.hasMoved = false;
+        }
+    }
+
+    /**
+     * LEFT HAND CONTROLS:
+     * - Pinch + MOVE (horizontal or vertical) = Crossfader control
+     * - 0% = Track A only, 50% = Both, 100% = Track B only
+     */
+    handleLeftHandGesture(landmarks, pinches) {
+        const state = stateStore.getState();
+        const controlState = this.controlState.Left;
+        const isPinching = pinches.index;
+
+        // Use Y position for crossfader (up = Track A, down = Track B)
+        // This is more natural for the gesture
+        const currentY = landmarks[0].y;
+
+        // =============================================
+        // PINCH STARTED
+        // =============================================
+        if (isPinching && !controlState.isPinching) {
+            controlState.isPinching = true;
+            controlState.startY = currentY;
+            controlState.startValue = state.crossfaderPosition;
+            controlState.hasMoved = false;
+            console.log(`Left Hand: Pinch Started - Crossfader: ${(state.crossfaderPosition * 100).toFixed(0)}%`);
+        }
+        // =============================================
+        // PINCH HELD - Crossfader control
+        // =============================================
+        else if (isPinching && controlState.isPinching) {
+            const deltaY = currentY - controlState.startY;
+            const absDeltaY = Math.abs(deltaY);
+
+            if (absDeltaY > this.movementThreshold) {
+                controlState.hasMoved = true;
+
+                // Moving DOWN = towards Track B (increase crossfader)
+                // Moving UP = towards Track A (decrease crossfader)
+                const crossfaderChange = deltaY / this.crossfaderSensitivity;
+                let newPosition = controlState.startValue + crossfaderChange;
+                newPosition = Math.max(0, Math.min(1, newPosition));
+
+                audioEngine.setCrossfaderPosition(newPosition);
+            }
+        }
+        // =============================================
+        // PINCH RELEASED
+        // =============================================
+        else if (!isPinching && controlState.isPinching) {
+            controlState.isPinching = false;
+
+            if (controlState.hasMoved) {
+                const finalPosition = stateStore.getState().crossfaderPosition;
+                let description;
+                if (finalPosition < 0.25) {
+                    description = 'Track A';
+                } else if (finalPosition > 0.75) {
+                    description = 'Track B';
+                } else {
+                    description = 'Both Tracks';
+                }
+                console.log(`Left Hand: Crossfader set to ${(finalPosition * 100).toFixed(0)}% (${description})`);
+            }
+
+            controlState.hasMoved = false;
         }
     }
 }

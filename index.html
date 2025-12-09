@@ -5,7 +5,7 @@
   <meta charset="UTF-8" />
   <link rel="icon" type="image/svg+xml" href="" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Gesture Music System</title>
+  <title>DJ Gesture Mixer</title>
 </head>
 
 <body>
@@ -13,22 +13,52 @@
     <video id="input_video" style="display: none;"></video>
     <canvas id="output_canvas"></canvas>
 
-    <!-- Track Upload Panel -->
+    <!-- DJ Control Panel -->
     <div id="track-panel">
-      <h3>🎵 Track Controls</h3>
-      <div class="track-control">
-        <label>Left Hand Track:</label>
-        <input type="file" id="left-track-input" accept="audio/*">
-        <button id="left-track-play" disabled>▶️ Play</button>
-        <div id="left-volume-display" class="volume-display">Vol: 70%</div>
+      <h3>🎧 DJ Gesture Mixer</h3>
+
+      <!-- Track A -->
+      <div class="track-control track-a">
+        <label>🟢 Track A:</label>
+        <input type="file" id="track-a-input" accept="audio/*">
+        <div id="track-a-status" class="track-status">No file loaded</div>
       </div>
-      <div class="track-control">
-        <label>Right Hand Track:</label>
-        <input type="file" id="right-track-input" accept="audio/*">
-        <button id="right-track-play" disabled>▶️ Play</button>
-        <div id="right-volume-display" class="volume-display">Vol: 70%</div>
+
+      <!-- Track B -->
+      <div class="track-control track-b">
+        <label>🔴 Track B:</label>
+        <input type="file" id="track-b-input" accept="audio/*">
+        <div id="track-b-status" class="track-status">No file loaded</div>
       </div>
-      <p class="hint">📌 Pinch + move up/down to control volume</p>
+
+      <!-- Play All Button -->
+      <button id="play-all-btn" class="play-all-btn">▶️ Play All</button>
+
+      <!-- Status Displays -->
+      <div class="status-row">
+        <div id="master-volume-display" class="status-display master">Master: 70%</div>
+        <div id="crossfader-display" class="status-display crossfader">Crossfader: 50%</div>
+      </div>
+
+      <!-- Control Hints -->
+      <div class="hints">
+        <div class="hint-section">
+          <span class="hint-icon">🖐️</span>
+          <div class="hint-content">
+            <strong>Right Hand</strong>
+            <p>Pinch = Play/Pause</p>
+            <p>Pinch + ↕ = Master Volume</p>
+          </div>
+        </div>
+        <div class="hint-section">
+          <span class="hint-icon">🖐️</span>
+          <div class="hint-content">
+            <strong>Left Hand</strong>
+            <p>Pinch + ↕ = Crossfader</p>
+            <p class="fade-hint">↑ Track A | ↓ Track B</p>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
   <script type="module" src="/src/main.js"></script>

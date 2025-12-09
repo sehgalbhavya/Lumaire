@@ -10,12 +10,13 @@ const videoElement = document.getElementById('input_video')
 const canvasElement = document.getElementById('output_canvas')
 
 // Track upload elements
-const leftTrackInput = document.getElementById('left-track-input')
-const rightTrackInput = document.getElementById('right-track-input')
-const leftPlayBtn = document.getElementById('left-track-play')
-const rightPlayBtn = document.getElementById('right-track-play')
-const leftVolumeDisplay = document.getElementById('left-volume-display')
-const rightVolumeDisplay = document.getElementById('right-volume-display')
+const trackAInput = document.getElementById('track-a-input')
+const trackBInput = document.getElementById('track-b-input')
+const trackAStatus = document.getElementById('track-a-status')
+const trackBStatus = document.getElementById('track-b-status')
+const playAllBtn = document.getElementById('play-all-btn')
+const masterVolumeDisplay = document.getElementById('master-volume-display')
+const crossfaderDisplay = document.getElementById('crossfader-display')
 
 // Initialize Visual Engine
 visualEngine.init(canvasElement);
@@ -28,74 +29,78 @@ document.body.addEventListener('click', async () => {
 // =============================================
 // TRACK UPLOAD HANDLERS
 // =============================================
-leftTrackInput.addEventListener('change', async (e) => {
+trackAInput?.addEventListener('change', async (e) => {
     const file = e.target.files[0];
     if (file) {
-        await audioEngine.init(); // Ensure audio is initialized
-        await audioEngine.loadTrack(file, 'Left');
-        leftPlayBtn.disabled = false;
-        leftPlayBtn.textContent = '▶️ Play Left';
+        if (trackAStatus) {
+            trackAStatus.textContent = 'Loading...';
+        }
+        await audioEngine.init();
+        await audioEngine.loadTrack(file, 'A');
+        if (trackAStatus) {
+            trackAStatus.textContent = `✓ ${file.name}`;
+            trackAStatus.classList.add('loaded');
+        }
+        console.log(`Track A loaded: ${file.name}`);
     }
 });
 
-rightTrackInput.addEventListener('change', async (e) => {
+trackBInput?.addEventListener('change', async (e) => {
     const file = e.target.files[0];
     if (file) {
-        await audioEngine.init(); // Ensure audio is initialized
-        await audioEngine.loadTrack(file, 'Right');
-        rightPlayBtn.disabled = false;
-        rightPlayBtn.textContent = '▶️ Play Right';
+        if (trackBStatus) {
+            trackBStatus.textContent = 'Loading...';
+        }
+        await audioEngine.init();
+        await audioEngine.loadTrack(file, 'B');
+        if (trackBStatus) {
+            trackBStatus.textContent = `✓ ${file.name}`;
+            trackBStatus.classList.add('loaded');
+        }
+        console.log(`Track B loaded: ${file.name}`);
     }
 });
 
 // =============================================
-// PLAY BUTTON HANDLERS
+// PLAY ALL BUTTON HANDLER
 // =============================================
-leftPlayBtn.addEventListener('click', () => {
-    audioEngine.toggleTrack('Left');
-    const player = audioEngine.leftTrackPlayer;
-    if (player) {
-        leftPlayBtn.textContent = player.state === 'started' ? '⏸️ Pause Left' : '▶️ Play Left';
-    }
-});
-
-rightPlayBtn.addEventListener('click', () => {
-    audioEngine.toggleTrack('Right');
-    const player = audioEngine.rightTrackPlayer;
-    if (player) {
-        rightPlayBtn.textContent = player.state === 'started' ? '⏸️ Pause Right' : '▶️ Play Right';
-    }
+playAllBtn?.addEventListener('click', async () => {
+    await audioEngine.init(); // Ensure audio is initialized
+    await audioEngine.toggleAllTracks();
 });
 
 // =============================================
-// VOLUME DISPLAY UPDATES
+// STATE DISPLAY UPDATES
 // =============================================
 stateStore.subscribe((state) => {
-    // Update left volume display
-    const leftPercent = Math.round(state.leftTrackVolume * 100);
-    leftVolumeDisplay.textContent = `Vol: ${leftPercent}%`;
-    leftVolumeDisplay.style.color = getVolumeColor(state.leftTrackVolume);
-
-    // Update right volume display
-    const rightPercent = Math.round(state.rightTrackVolume * 100);
-    rightVolumeDisplay.textContent = `Vol: ${rightPercent}%`;
-    rightVolumeDisplay.style.color = getVolumeColor(state.rightTrackVolume);
-
-    // Update play button text based on playing state (for gesture-triggered changes)
-    if (state.leftTrackLoaded) {
-        leftPlayBtn.textContent = state.leftTrackPlaying ? '⏸️ Pause Left' : '▶️ Play Left';
+    // Update master volume display
+    if (masterVolumeDisplay) {
+        const masterPercent = Math.round(state.masterVolume * 100);
+        masterVolumeDisplay.textContent = `Master: ${masterPercent}%`;
+        masterVolumeDisplay.style.color = '#ffd700';
     }
-    if (state.rightTrackLoaded) {
-        rightPlayBtn.textContent = state.rightTrackPlaying ? '⏸️ Pause Right' : '▶️ Play Right';
+
+    // Update crossfader display
+    if (crossfaderDisplay) {
+        const crossPercent = Math.round(state.crossfaderPosition * 100);
+        let description;
+        if (state.crossfaderPosition < 0.25) {
+            description = 'A';
+        } else if (state.crossfaderPosition > 0.75) {
+            description = 'B';
+        } else {
+            description = 'Both';
+        }
+        crossfaderDisplay.textContent = `Crossfader: ${crossPercent}% (${description})`;
+        crossfaderDisplay.style.color = '#8a2be2';
+    }
+
+    // Update play button text
+    if (playAllBtn) {
+        const anyPlaying = state.trackAPlaying || state.trackBPlaying;
+        playAllBtn.textContent = anyPlaying ? '⏸️ Pause All' : '▶️ Play All';
     }
 });
-
-function getVolumeColor(volume) {
-    // Gradient from red (low) to green (high)
-    if (volume < 0.3) return '#ff4444';
-    if (volume < 0.6) return '#ffaa00';
-    return '#38ef7d';
-}
 
 function onResults(results) {
     // Process gestures and get data
@@ -129,4 +134,3 @@ const camera = new Camera(videoElement, {
 })
 
 camera.start()
-

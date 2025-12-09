@@ -50,148 +50,271 @@ export class VisualEngine {
 
         ctx.restore();
 
-        // Draw UI (not mirrored)
-        this.drawTrackInfo(handsData, width, height);
+        // Draw DJ UI (not mirrored)
+        const state = stateStore.getState();
+        this.drawDJInterface(ctx, width, height, state);
         this.drawHandInfo(handsData, width, height);
     }
 
     /**
-     * Draw track volume indicators on screen
-     * Shows visual feedback for each hand's track status and volume level
+     * Draw the DJ mixing interface
      */
-    drawTrackInfo(handsData, width, height) {
-        const state = stateStore.getState();
-        const ctx = this.ctx;
-
+    drawDJInterface(ctx, width, height, state) {
         ctx.save();
 
-        // Left Track Indicator (left side of screen)
-        this.drawTrackIndicator(ctx, 50, height / 2, 'Left', state.leftTrackLoaded, state.leftTrackVolume, state.leftTrackPlaying);
+        // Bottom Y position for all volume indicators
+        const bottomY = height - 150;
 
-        // Right Track Indicator (right side of screen)
-        this.drawTrackIndicator(ctx, width - 50, height / 2, 'Right', state.rightTrackLoaded, state.rightTrackVolume, state.rightTrackPlaying);
+        // Draw crossfader at bottom center
+        this.drawCrossfader(ctx, width / 2, height - 60, state);
+
+        // Draw Track A indicator (bottom left)
+        this.drawTrackIndicator(ctx, 70, bottomY, 'A', state.trackALoaded, state.trackAPlaying, state);
+
+        // Draw Track B indicator (bottom right)
+        this.drawTrackIndicator(ctx, width - 70, bottomY, 'B', state.trackBLoaded, state.trackBPlaying, state);
+
+        // Draw master volume (bottom center-right, between crossfader and Track B)
+        this.drawMasterVolume(ctx, width - 180, bottomY, state);
+
+        // Draw overall play status (top center)
+        this.drawPlayStatus(ctx, width / 2, 50, state);
 
         ctx.restore();
     }
 
     /**
-     * Draw a single track's volume indicator
+     * Draw the crossfader (horizontal slider at bottom)
      */
-    drawTrackIndicator(ctx, x, y, label, isLoaded, volume, isPlaying) {
-        const barWidth = 30;
-        const barHeight = 200;
+    drawCrossfader(ctx, x, y, state) {
+        const barWidth = 300;
+        const barHeight = 30;
+        const barX = x - barWidth / 2;
         const barY = y - barHeight / 2;
 
-        // Background bar
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        // Background
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.fillRect(barX, barY, barWidth, barHeight);
+
+        // Border
+        ctx.strokeStyle = 'rgba(138, 43, 226, 0.8)';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(barX, barY, barWidth, barHeight);
+
+        // Track A side (left gradient)
+        const leftGradient = ctx.createLinearGradient(barX, 0, barX + barWidth / 2, 0);
+        leftGradient.addColorStop(0, 'rgba(56, 239, 125, 0.8)');
+        leftGradient.addColorStop(1, 'rgba(56, 239, 125, 0.2)');
+        ctx.fillStyle = leftGradient;
+        ctx.fillRect(barX + 2, barY + 2, barWidth / 2 - 4, barHeight - 4);
+
+        // Track B side (right gradient)
+        const rightGradient = ctx.createLinearGradient(barX + barWidth / 2, 0, barX + barWidth, 0);
+        rightGradient.addColorStop(0, 'rgba(255, 107, 107, 0.2)');
+        rightGradient.addColorStop(1, 'rgba(255, 107, 107, 0.8)');
+        ctx.fillStyle = rightGradient;
+        ctx.fillRect(barX + barWidth / 2 + 2, barY + 2, barWidth / 2 - 4, barHeight - 4);
+
+        // Crossfader position indicator (thumb)
+        const thumbX = barX + state.crossfaderPosition * barWidth;
+        ctx.fillStyle = 'white';
+        ctx.fillRect(thumbX - 5, barY - 5, 10, barHeight + 10);
+        ctx.strokeStyle = 'rgba(138, 43, 226, 1)';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(thumbX - 5, barY - 5, 10, barHeight + 10);
+
+        // Labels
+        ctx.font = 'bold 12px Arial';
+        ctx.textAlign = 'left';
+        ctx.fillStyle = '#38ef7d';
+        ctx.fillText('A', barX + 10, barY + barHeight / 2 + 4);
+
+        ctx.textAlign = 'right';
+        ctx.fillStyle = '#ff6b6b';
+        ctx.fillText('B', barX + barWidth - 10, barY + barHeight / 2 + 4);
+
+        // Position percentage
+        ctx.textAlign = 'center';
+        ctx.fillStyle = 'white';
+        ctx.font = 'bold 14px Arial';
+        ctx.fillText(`${Math.round(state.crossfaderPosition * 100)}%`, x, barY - 15);
+
+        // Description
+        ctx.font = '11px Arial';
+        ctx.fillStyle = '#aaa';
+        let desc;
+        if (state.crossfaderPosition < 0.25) {
+            desc = 'Track A';
+        } else if (state.crossfaderPosition > 0.75) {
+            desc = 'Track B';
+        } else {
+            desc = 'Both Tracks';
+        }
+        ctx.fillText(desc, x, barY + barHeight + 18);
+    }
+
+    /**
+     * Draw master volume indicator (vertical bar)
+     */
+    drawMasterVolume(ctx, x, y, state) {
+        const barWidth = 25;
+        const barHeight = 120;
+        const barY = y - barHeight / 2;
+
+        // Background
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
         ctx.fillRect(x - barWidth / 2, barY, barWidth, barHeight);
 
-        // Border - different color when playing
-        ctx.strokeStyle = isPlaying ? 'rgba(255, 215, 0, 0.9)' : 'rgba(56, 239, 125, 0.8)';
-        ctx.lineWidth = isPlaying ? 3 : 2;
+        // Border
+        ctx.strokeStyle = 'rgba(255, 215, 0, 0.8)';
+        ctx.lineWidth = 2;
         ctx.strokeRect(x - barWidth / 2, barY, barWidth, barHeight);
 
-        // Volume fill (from bottom up) - always show, not just when loaded
-        const fillHeight = volume * barHeight;
+        // Volume fill
+        const fillHeight = state.masterVolume * barHeight;
         const gradient = ctx.createLinearGradient(0, barY + barHeight, 0, barY);
-
-        if (isPlaying) {
-            gradient.addColorStop(0, '#ffd700');
-            gradient.addColorStop(1, '#ff8c00');
-        } else {
-            gradient.addColorStop(0, '#11998e');
-            gradient.addColorStop(1, '#38ef7d');
-        }
+        gradient.addColorStop(0, '#ffd700');
+        gradient.addColorStop(1, '#ff8c00');
 
         ctx.fillStyle = gradient;
         ctx.fillRect(x - barWidth / 2 + 2, barY + barHeight - fillHeight, barWidth - 4, fillHeight);
 
-        // Volume percentage text - always show
+        // Volume percentage
         ctx.fillStyle = 'white';
-        ctx.font = 'bold 14px Arial';
+        ctx.font = 'bold 12px Arial';
         ctx.textAlign = 'center';
-        ctx.fillText(`${Math.round(volume * 100)}%`, x, barY - 10);
+        ctx.fillText(`${Math.round(state.masterVolume * 100)}%`, x, barY - 8);
 
         // Label
-        ctx.fillStyle = isPlaying ? '#ffd700' : '#38ef7d';
-        ctx.font = 'bold 16px Arial';
-        ctx.textAlign = 'center';
-        ctx.fillText(label, x, barY + barHeight + 25);
+        ctx.fillStyle = '#ffd700';
+        ctx.font = 'bold 10px Arial';
+        ctx.fillText('MASTER', x, barY + barHeight + 15);
+    }
 
-        // Play/Pause Status
-        if (isLoaded) {
-            ctx.font = 'bold 14px Arial';
-            ctx.fillStyle = isPlaying ? '#ffd700' : '#38ef7d';
-            ctx.fillText(isPlaying ? '▶️ PLAYING' : '⏸️ PAUSED', x, barY + barHeight + 45);
+    /**
+     * Draw track status indicator
+     */
+    drawTrackIndicator(ctx, x, y, trackLabel, isLoaded, isPlaying, state) {
+        const barWidth = 25;
+        const barHeight = 120;
+        const barY = y - barHeight / 2;
+
+        // Calculate effective volume from crossfader
+        let effectiveVolume;
+        if (trackLabel === 'A') {
+            if (state.crossfaderPosition <= 0.5) {
+                effectiveVolume = 1;
+            } else {
+                effectiveVolume = 1 - (state.crossfaderPosition - 0.5) * 2;
+            }
         } else {
-            ctx.font = '12px Arial';
-            ctx.fillStyle = '#888';
-            ctx.fillText('(no track)', x, barY + barHeight + 45);
+            if (state.crossfaderPosition >= 0.5) {
+                effectiveVolume = 1;
+            } else {
+                effectiveVolume = state.crossfaderPosition * 2;
+            }
+        }
+        effectiveVolume *= state.masterVolume;
+
+        const trackColor = trackLabel === 'A' ? '#38ef7d' : '#ff6b6b';
+
+        // Background
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        ctx.fillRect(x - barWidth / 2, barY, barWidth, barHeight);
+
+        // Border
+        ctx.strokeStyle = isPlaying ? trackColor : 'rgba(100, 100, 100, 0.5)';
+        ctx.lineWidth = isPlaying ? 3 : 2;
+        ctx.strokeRect(x - barWidth / 2, barY, barWidth, barHeight);
+
+        // Volume fill
+        const fillHeight = effectiveVolume * barHeight;
+        ctx.fillStyle = trackColor;
+        ctx.globalAlpha = isPlaying ? 0.8 : 0.3;
+        ctx.fillRect(x - barWidth / 2 + 2, barY + barHeight - fillHeight, barWidth - 4, fillHeight);
+        ctx.globalAlpha = 1;
+
+        // Track label
+        ctx.fillStyle = isLoaded ? trackColor : '#666';
+        ctx.font = 'bold 14px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(`Track ${trackLabel}`, x, barY - 8);
+
+        // Status
+        ctx.font = '12px Arial';
+        if (!isLoaded) {
+            ctx.fillStyle = '#666';
+            ctx.fillText('No File', x, barY + barHeight + 20);
+        } else {
+            ctx.fillStyle = isPlaying ? trackColor : '#888';
+            ctx.fillText(isPlaying ? '▶ Playing' : '⏸ Paused', x, barY + barHeight + 20);
         }
 
-        // Hint for pinch gesture
+        // Effective volume
         ctx.font = '10px Arial';
+        ctx.fillStyle = '#aaa';
+        ctx.fillText(`${Math.round(effectiveVolume * 100)}%`, x, barY + barHeight + 38);
+    }
+
+    /**
+     * Draw overall play status
+     */
+    drawPlayStatus(ctx, x, y, state) {
+        const isPlaying = state.trackAPlaying || state.trackBPlaying;
+
+        ctx.font = 'bold 24px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = isPlaying ? '#ffd700' : '#888';
+        ctx.fillText(isPlaying ? '▶ PLAYING' : '⏸ PAUSED', x, y);
+
+        ctx.font = '12px Arial';
         ctx.fillStyle = '#666';
-        ctx.fillText('Pinch: Play/Pause', x, barY + barHeight + 65);
-        ctx.fillText('Pinch+Move: Volume', x, barY + barHeight + 80);
+        ctx.fillText('Right Hand: Quick Pinch to Play/Pause', x, y + 20);
     }
 
     drawHandInfo(handsData, width, height) {
         if (!handsData) return;
 
         this.ctx.save();
-        this.ctx.font = "20px Arial";
+        this.ctx.font = "18px Arial";
         this.ctx.fillStyle = "white";
         this.ctx.strokeStyle = "black";
         this.ctx.lineWidth = 3;
 
         handsData.forEach(hand => {
             const wrist = hand.landmarks[0];
-            // Flip x because of mirroring
             const x = (1 - wrist.x) * width;
             const y = wrist.y * height;
 
-            // Show hand label, gesture, and track status
-            const trackStatus = hand.hasTrackLoaded ? '🎵' : '';
-            const text = `${hand.label} ${trackStatus} | ${hand.gesture}`;
+            // Show hand label and control type
+            const controlType = hand.controlType || '';
+            const text = `${hand.label} | ${controlType}`;
 
             this.ctx.strokeText(text, x, y);
             this.ctx.fillText(text, x, y);
 
             // Draw Pinch Indicators
-            if (hand.pinches) {
-                // Index Pinch - Volume Control
-                if (hand.pinches.index) {
-                    const indexTip = hand.landmarks[8];
-                    const ix = (1 - indexTip.x) * width;
-                    const iy = indexTip.y * height;
+            if (hand.pinches && hand.pinches.index) {
+                const indexTip = hand.landmarks[8];
+                const ix = (1 - indexTip.x) * width;
+                const iy = indexTip.y * height;
 
-                    // Larger, more visible indicator for volume control
-                    this.ctx.beginPath();
-                    this.ctx.arc(ix, iy, 20, 0, 2 * Math.PI);
-                    this.ctx.fillStyle = "rgba(56, 239, 125, 0.8)";
-                    this.ctx.fill();
+                // Circle indicator
+                this.ctx.beginPath();
+                this.ctx.arc(ix, iy, 20, 0, 2 * Math.PI);
 
-                    // Label - always show VOL since volume control works without tracks
-                    this.ctx.fillStyle = "white";
-                    this.ctx.strokeText("VOL ↕", ix + 25, iy);
-                    this.ctx.fillText("VOL ↕", ix + 25, iy);
+                if (hand.label === 'Right') {
+                    this.ctx.fillStyle = "rgba(255, 215, 0, 0.8)"; // Gold for master
+                } else {
+                    this.ctx.fillStyle = "rgba(138, 43, 226, 0.8)"; // Purple for crossfader
                 }
+                this.ctx.fill();
 
-                // Middle Pinch
-                if (hand.pinches.middle) {
-                    const middleTip = hand.landmarks[12];
-                    const mx = (1 - middleTip.x) * width;
-                    const my = middleTip.y * height;
-
-                    this.ctx.beginPath();
-                    this.ctx.arc(mx, my, 15, 0, 2 * Math.PI);
-                    this.ctx.fillStyle = "cyan";
-                    this.ctx.fill();
-
-                    this.ctx.strokeText("MIDDLE", mx + 20, my);
-                    this.ctx.fillText("MIDDLE", mx + 20, my);
-                }
+                // Label
+                this.ctx.fillStyle = "white";
+                const label = hand.label === 'Right' ? 'MASTER ↕' : 'XFADE ↕';
+                this.ctx.strokeText(label, ix + 25, iy);
+                this.ctx.fillText(label, ix + 25, iy);
             }
         });
         this.ctx.restore();
