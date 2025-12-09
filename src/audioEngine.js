@@ -7,6 +7,16 @@ export class AudioEngine {
         this.synth = null;
         this.instruments = {};
 
+        // Track players (A and B)
+        this.trackAPlayer = null;
+        this.trackBPlayer = null;
+
+        // Pause state tracking for resume functionality
+        this.pauseState = {
+            A: { isPaused: false, pauseTime: 0, startTime: 0 },
+            B: { isPaused: false, pauseTime: 0, startTime: 0 }
+        };
+
         // Subscribe to state changes
         stateStore.subscribe((state) => {
             this.handleStateChange(state);
@@ -19,7 +29,7 @@ export class AudioEngine {
         await Tone.start();
         console.log('Audio Engine Initialized');
 
-        // Initialize Instruments
+        // Initialize Instruments (for sequencer - keeping for backwards compatibility)
         this.instruments = {
             0: new Tone.MembraneSynth().toDestination(), // Kick
             1: new Tone.NoiseSynth({
@@ -51,10 +61,39 @@ export class AudioEngine {
         this.startSequencer();
     }
 
+    /**
+     * Calculate track volumes based on crossfader and master volume
+     * Crossfader: 0 = Track A only, 0.5 = Both tracks, 1 = Track B only
+     */
+    calculateTrackVolumes(masterVolume, crossfaderPosition) {
+        let trackAVolume, trackBVolume;
+
+        // Crossfader logic:
+        // - Position 0: Track A = 100%, Track B = 0%
+        // - Position 0.5: Track A = 100%, Track B = 100%
+        // - Position 1: Track A = 0%, Track B = 100%
+
+        if (crossfaderPosition <= 0.5) {
+            // Left half: Track A stays full, Track B fades in
+            trackAVolume = 1;
+            trackBVolume = crossfaderPosition * 2; // 0 -> 0, 0.5 -> 1
+        } else {
+            // Right half: Track A fades out, Track B stays full
+            trackAVolume = 1 - (crossfaderPosition - 0.5) * 2; // 0.5 -> 1, 1 -> 0
+            trackBVolume = 1;
+        }
+
+        // Apply master volume
+        trackAVolume *= masterVolume;
+        trackBVolume *= masterVolume;
+
+        return { trackAVolume, trackBVolume };
+    }
+
     handleStateChange(state) {
         if (!this.initialized) return;
 
-        // Handle Play/Stop
+        // Handle Play/Stop for sequencer
         if (state.isPlaying && Tone.Transport.state !== 'started') {
             Tone.Transport.start();
         } else if (!state.isPlaying && Tone.Transport.state === 'started') {
@@ -63,6 +102,24 @@ export class AudioEngine {
 
         // Handle Tempo
         Tone.Transport.bpm.value = state.tempo;
+
+        // Calculate and apply track volumes based on crossfader and master volume
+        const { trackAVolume, trackBVolume } = this.calculateTrackVolumes(
+            state.masterVolume,
+            state.crossfaderPosition
+        );
+
+        // Apply to Track A
+        if (this.trackAPlayer) {
+            const dbA = trackAVolume === 0 ? -Infinity : -40 * (1 - trackAVolume);
+            this.trackAPlayer.volume.value = dbA;
+        }
+
+        // Apply to Track B
+        if (this.trackBPlayer) {
+            const dbB = trackBVolume === 0 ? -Infinity : -40 * (1 - trackBVolume);
+            this.trackBPlayer.volume.value = dbB;
+        }
     }
 
     startSequencer() {
@@ -113,6 +170,193 @@ export class AudioEngine {
                     break;
             }
         }
+    }
+
+    /**
+     * Load an audio track from a File object
+     * @param {File} file - The audio file to load
+     * @param {'A'|'B'} track - Which track to load (A or B)
+     */
+    async loadTrack(file, track) {
+        // Ensure audio context is started
+        if (!this.initialized) {
+            await this.init();
+        }
+
+        // Make sure Tone.js context is running
+        if (Tone.context.state !== 'running') {
+            await Tone.start();
+            console.log('Tone.js audio context started');
+        }
+
+        // Create object URL from file
+        const url = URL.createObjectURL(file);
+        console.log(`Loading Track ${track} from: ${url}`);
+
+        // Stop and dispose of existing player if any
+        if (track === 'A' && this.trackAPlayer) {
+            this.trackAPlayer.stop();
+            this.trackAPlayer.dispose();
+            this.trackAPlayer = null;
+        } else if (track === 'B' && this.trackBPlayer) {
+            this.trackBPlayer.stop();
+            this.trackBPlayer.dispose();
+            this.trackBPlayer = null;
+        }
+
+        // Reset pause state for this track
+        this.pauseState[track] = { isPaused: false, pauseTime: 0, startTime: 0 };
+
+        // Create new player with promise-based loading
+        return new Promise((resolve, reject) => {
+            const player = new Tone.Player({
+                url: url,
+                loop: true,
+                autostart: false,
+                onload: () => {
+                    console.log(`Track ${track} loaded successfully: ${file.name}`);
+
+                    // Store the player
+                    if (track === 'A') {
+                        this.trackAPlayer = player;
+                        stateStore.setState({ trackALoaded: true });
+                    } else {
+                        this.trackBPlayer = player;
+                        stateStore.setState({ trackBLoaded: true });
+                    }
+
+                    // Apply current volume based on crossfader and master
+                    const state = stateStore.getState();
+                    const { trackAVolume, trackBVolume } = this.calculateTrackVolumes(
+                        state.masterVolume,
+                        state.crossfaderPosition
+                    );
+                    const volume = track === 'A' ? trackAVolume : trackBVolume;
+                    const db = volume === 0 ? -Infinity : -40 * (1 - volume);
+                    player.volume.value = db;
+                    console.log(`Track ${track} volume set to ${db.toFixed(1)}dB`);
+
+                    resolve(player);
+                },
+                onerror: (error) => {
+                    console.error(`Error loading Track ${track}:`, error);
+                    reject(error);
+                }
+            }).toDestination();
+        });
+    }
+
+    /**
+     * Toggle play/pause for BOTH tracks (overall play/pause)
+     * Used by right hand quick pinch
+     */
+    async toggleAllTracks() {
+        // Ensure audio context is running
+        if (Tone.context.state !== 'running') {
+            await Tone.start();
+            console.log('Tone.js audio context started before toggle');
+        }
+
+        const state = stateStore.getState();
+        const anyPlaying = state.trackAPlaying || state.trackBPlaying;
+
+        console.log(`toggleAllTracks called - currently ${anyPlaying ? 'playing' : 'paused'}`);
+
+        if (anyPlaying) {
+            // PAUSE both tracks
+            await this.pauseTrack('A');
+            await this.pauseTrack('B');
+            stateStore.setState({ isPlaying: false });
+            console.log('All tracks paused');
+        } else {
+            // PLAY both tracks (if loaded)
+            let anyStarted = false;
+            if (this.trackAPlayer && this.trackAPlayer.loaded) {
+                await this.resumeTrack('A');
+                anyStarted = true;
+            }
+            if (this.trackBPlayer && this.trackBPlayer.loaded) {
+                await this.resumeTrack('B');
+                anyStarted = true;
+            }
+            if (anyStarted) {
+                stateStore.setState({ isPlaying: true });
+                console.log('All tracks started');
+            } else {
+                console.warn('No tracks loaded to play');
+            }
+        }
+    }
+
+    /**
+     * Pause a single track with position saving
+     */
+    async pauseTrack(track) {
+        const player = track === 'A' ? this.trackAPlayer : this.trackBPlayer;
+        const pauseState = this.pauseState[track];
+
+        if (player && player.state === 'started') {
+            const elapsed = Tone.now() - pauseState.startTime;
+            pauseState.pauseTime = elapsed;
+            pauseState.isPaused = true;
+            player.stop();
+
+            if (track === 'A') {
+                stateStore.setState({ trackAPlaying: false });
+            } else {
+                stateStore.setState({ trackBPlaying: false });
+            }
+            console.log(`Track ${track} paused at ${elapsed.toFixed(2)}s`);
+        }
+    }
+
+    /**
+     * Resume a single track from saved position
+     */
+    async resumeTrack(track) {
+        const player = track === 'A' ? this.trackAPlayer : this.trackBPlayer;
+        const pauseState = this.pauseState[track];
+
+        if (player && player.loaded) {
+            let offset = 0;
+
+            if (pauseState.isPaused && pauseState.pauseTime > 0) {
+                const duration = player.buffer.duration;
+                offset = pauseState.pauseTime % duration;
+                console.log(`Track ${track} resuming from ${offset.toFixed(2)}s`);
+            } else {
+                console.log(`Track ${track} starting from beginning`);
+            }
+
+            pauseState.startTime = Tone.now() - offset;
+            pauseState.isPaused = false;
+            player.start(undefined, offset);
+
+            if (track === 'A') {
+                stateStore.setState({ trackAPlaying: true });
+            } else {
+                stateStore.setState({ trackBPlaying: true });
+            }
+        }
+    }
+
+    /**
+     * Set master volume (0 to 1)
+     * Used by right hand pinch + up/down
+     */
+    setMasterVolume(volume) {
+        const clampedVolume = Math.max(0, Math.min(1, volume));
+        stateStore.setState({ masterVolume: clampedVolume });
+    }
+
+    /**
+     * Set crossfader position (0 to 1)
+     * 0 = Track A only, 0.5 = Both, 1 = Track B only
+     * Used by left hand pinch + move
+     */
+    setCrossfaderPosition(position) {
+        const clampedPosition = Math.max(0, Math.min(1, position));
+        stateStore.setState({ crossfaderPosition: clampedPosition });
     }
 }
 

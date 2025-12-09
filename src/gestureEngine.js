@@ -1,15 +1,32 @@
 import { stateStore } from './stateStore';
+import { audioEngine } from './audioEngine';
 
 export class GestureEngine {
     constructor() {
         this.pinchThreshold = 0.05;
         this.lastPinchState = { Left: { index: false, middle: false }, Right: { index: false, middle: false } };
+
+        // Control state tracking for each hand
+        this.controlState = {
+            // Right hand: Master volume control
+            Right: { isPinching: false, startY: 0, startValue: 0, hasMoved: false },
+            // Left hand: Crossfader control
+            Left: { isPinching: false, startX: 0, startValue: 0, hasMoved: false }
+        };
+
+        // Sensitivity settings
+        this.volumeSensitivity = 0.3;  // For master volume (vertical movement)
+        this.crossfaderSensitivity = 0.5;  // For crossfader (horizontal movement)
+
+        // Minimum movement threshold to distinguish tap from drag
+        this.movementThreshold = 0.03;
     }
 
     process(results) {
         if (!results.multiHandLandmarks || !results.multiHandedness) return [];
 
         const handsData = [];
+        const state = stateStore.getState();
 
         for (let i = 0; i < results.multiHandLandmarks.length; i++) {
             const landmarks = results.multiHandLandmarks[i];
@@ -19,76 +36,49 @@ export class GestureEngine {
             const rawLabel = classification.label;
             const label = rawLabel === 'Left' ? 'Right' : 'Left';
 
-            // 1. Pinch Detection (Index and Middle)
+            // 1. Pinch Detection
             const pinches = this.detectPinches(landmarks);
 
             // 2. Open vs Fist
             const gesture = this.detectHandPose(landmarks);
 
-            // 3. Logic Mapping
-            if (label === 'Left') {
-                this.handleRowSelection(landmarks);
-            } else if (label === 'Right') {
-                this.handleColumnSelection(landmarks);
-            }
+            // Get control state for this hand
+            const controlState = this.controlState[label];
 
             // Store data for visualization
             handsData.push({
                 label,
                 landmarks,
                 gesture,
-                pinches // { index: bool, middle: bool }
+                pinches,
+                isControlling: controlState.isPinching && controlState.hasMoved,
+                controlType: label === 'Right' ? 'Master Volume' : 'Crossfader'
             });
 
             // Update pinch states
-            // Initialize if not exists
             if (!this.lastPinchState[label]) {
                 this.lastPinchState[label] = { index: false, middle: false };
             }
 
-            // Handle Right Hand Index Pinch -> Toggle Beat
-            if (label === 'Right' && pinches.index && !this.lastPinchState[label].index) {
-                console.log(`${label} Hand Index Pinch Detected - Toggling Beat`);
-                this.toggleBeat();
+            // Debug logging for pinches
+            if (pinches.index && !this.lastPinchState[label].index) {
+                console.log(`${label} Hand Index Pinch Started`);
             }
 
-            if (pinches.index && !this.lastPinchState[label].index) {
-                console.log(`${label} Hand Index Pinch Detected`);
-            }
-            if (pinches.middle && !this.lastPinchState[label].middle) {
-                console.log(`${label} Hand Middle Pinch Detected`);
+            // =============================================
+            // HAND-SPECIFIC CONTROLS
+            // =============================================
+            if (label === 'Right') {
+                // RIGHT HAND: Play/Pause (tap) + Master Volume (drag up/down)
+                this.handleRightHandGesture(landmarks, pinches);
+            } else {
+                // LEFT HAND: Crossfader control (drag left/right)
+                this.handleLeftHandGesture(landmarks, pinches);
             }
 
             this.lastPinchState[label] = pinches;
         }
         return handsData;
-    }
-
-    toggleBeat() {
-        const state = stateStore.getState();
-        const { selectedRow, selectedColumn, beatGrid } = state;
-
-        // Create a deep copy of the grid to avoid direct mutation
-        const newGrid = beatGrid.map(row => [...row]);
-
-        // Toggle the cell
-        // Note: selectedColumn is 0-7 (8 cols), but sequencer is 16 steps.
-        // We need to decide mapping. 
-        // Option A: 8 cols = 8 steps (1 bar of 8th notes).
-        // Option B: 8 cols = 16 steps (each col is 2 steps? No, that's confusing).
-        // Option C: We just use the first 8 steps for now?
-        // Let's assume 1 col = 1 step for now, so we only edit the first 8 steps.
-        // OR, we can map 8 cols to 16 steps by using 2 pages, but let's keep it simple.
-        // Let's map col 0-7 to step 0-7.
-
-        // Wait, if we want 16 steps, we need 16 columns visually or a way to scroll.
-        // Given "Simple 4x8 grid" in plan, maybe we only support 8 steps for MVP?
-        // Or maybe each column represents 2 steps (16th notes)? 
-        // Let's stick to 1:1 mapping for now. Col 0 = Step 0.
-
-        newGrid[selectedRow][selectedColumn] = !newGrid[selectedRow][selectedColumn];
-
-        stateStore.setState({ beatGrid: newGrid });
     }
 
     detectPinches(landmarks) {
@@ -126,40 +116,130 @@ export class GestureEngine {
         return curledCount >= 3 ? 'Closed' : 'Open';
     }
 
-    handleRowSelection(landmarks) {
-        const y = landmarks[5].y;
-        const numRows = 4;
-        const clampedY = Math.max(0, Math.min(1, y));
-        const row = Math.floor(clampedY * numRows);
-        const finalRow = Math.min(numRows - 1, row);
+    /**
+     * RIGHT HAND CONTROLS:
+     * - Quick pinch (tap) = Toggle Play/Pause for ALL tracks
+     * - Pinch + UP/DOWN = Master Volume control
+     */
+    handleRightHandGesture(landmarks, pinches) {
+        const state = stateStore.getState();
+        const controlState = this.controlState.Right;
+        const isPinching = pinches.index;
 
-        const currentState = stateStore.getState();
-        if (currentState.selectedRow !== finalRow) {
-            stateStore.setState({ selectedRow: finalRow });
+        // Get current hand Y position (use wrist for stability)
+        const currentY = landmarks[0].y;
+
+        // =============================================
+        // PINCH STARTED
+        // =============================================
+        if (isPinching && !controlState.isPinching) {
+            controlState.isPinching = true;
+            controlState.startY = currentY;
+            controlState.startValue = state.masterVolume;
+            controlState.hasMoved = false;
+            console.log(`Right Hand: Pinch Started - Y: ${currentY.toFixed(3)}, Master Vol: ${(state.masterVolume * 100).toFixed(0)}%`);
+        }
+        // =============================================
+        // PINCH HELD - Check for master volume control
+        // =============================================
+        else if (isPinching && controlState.isPinching) {
+            const deltaY = currentY - controlState.startY;
+            const absDeltaY = Math.abs(deltaY);
+
+            if (absDeltaY > this.movementThreshold) {
+                controlState.hasMoved = true;
+
+                // Calculate volume change (up = increase, down = decrease)
+                const volumeChange = -deltaY / this.volumeSensitivity;
+                let newVolume = controlState.startValue + volumeChange;
+                newVolume = Math.max(0, Math.min(1, newVolume));
+
+                audioEngine.setMasterVolume(newVolume);
+            }
+        }
+        // =============================================
+        // PINCH RELEASED
+        // =============================================
+        else if (!isPinching && controlState.isPinching) {
+            controlState.isPinching = false;
+
+            if (!controlState.hasMoved) {
+                // TAP = Toggle Play/Pause for ALL tracks
+                console.log(`Right Hand: Tap Detected - Toggling ALL tracks Play/Pause`);
+                audioEngine.toggleAllTracks();
+            } else {
+                // Movement occurred, it was master volume control
+                const finalVolume = stateStore.getState().masterVolume;
+                console.log(`Right Hand: Master Volume set to ${(finalVolume * 100).toFixed(0)}%`);
+            }
+
+            controlState.hasMoved = false;
         }
     }
 
-    handleColumnSelection(landmarks) {
-        // Use Index Finger MCP (5) or Tip (8) for X position
-        const x = landmarks[8].x;
+    /**
+     * LEFT HAND CONTROLS:
+     * - Pinch + MOVE (horizontal or vertical) = Crossfader control
+     * - 0% = Track A only, 50% = Both, 100% = Track B only
+     */
+    handleLeftHandGesture(landmarks, pinches) {
+        const state = stateStore.getState();
+        const controlState = this.controlState.Left;
+        const isPinching = pinches.index;
 
-        // Map x (0 to 1) to columns (0 to 7)
-        // Note: x is normalized. 0 is left, 1 is right.
-        // Since we mirror the video, 0 (left in video) is actually right side of screen?
-        // Wait, MediaPipe coords: x increases from left to right of the IMAGE.
-        // If we mirror the image, the visual left is image right (x=1).
-        // So visual x = 1 - x.
-        // Let's map visual x to columns.
+        // Use Y position for crossfader (up = Track A, down = Track B)
+        // This is more natural for the gesture
+        const currentY = landmarks[0].y;
 
-        const visualX = 1 - x;
-        const numCols = 8;
-        const clampedX = Math.max(0, Math.min(1, visualX));
-        const col = Math.floor(clampedX * numCols);
-        const finalCol = Math.min(numCols - 1, col);
+        // =============================================
+        // PINCH STARTED
+        // =============================================
+        if (isPinching && !controlState.isPinching) {
+            controlState.isPinching = true;
+            controlState.startY = currentY;
+            controlState.startValue = state.crossfaderPosition;
+            controlState.hasMoved = false;
+            console.log(`Left Hand: Pinch Started - Crossfader: ${(state.crossfaderPosition * 100).toFixed(0)}%`);
+        }
+        // =============================================
+        // PINCH HELD - Crossfader control
+        // =============================================
+        else if (isPinching && controlState.isPinching) {
+            const deltaY = currentY - controlState.startY;
+            const absDeltaY = Math.abs(deltaY);
 
-        const currentState = stateStore.getState();
-        if (currentState.selectedColumn !== finalCol) {
-            stateStore.setState({ selectedColumn: finalCol });
+            if (absDeltaY > this.movementThreshold) {
+                controlState.hasMoved = true;
+
+                // Moving DOWN = towards Track B (increase crossfader)
+                // Moving UP = towards Track A (decrease crossfader)
+                const crossfaderChange = deltaY / this.crossfaderSensitivity;
+                let newPosition = controlState.startValue + crossfaderChange;
+                newPosition = Math.max(0, Math.min(1, newPosition));
+
+                audioEngine.setCrossfaderPosition(newPosition);
+            }
+        }
+        // =============================================
+        // PINCH RELEASED
+        // =============================================
+        else if (!isPinching && controlState.isPinching) {
+            controlState.isPinching = false;
+
+            if (controlState.hasMoved) {
+                const finalPosition = stateStore.getState().crossfaderPosition;
+                let description;
+                if (finalPosition < 0.25) {
+                    description = 'Track A';
+                } else if (finalPosition > 0.75) {
+                    description = 'Track B';
+                } else {
+                    description = 'Both Tracks';
+                }
+                console.log(`Left Hand: Crossfader set to ${(finalPosition * 100).toFixed(0)}% (${description})`);
+            }
+
+            controlState.hasMoved = false;
         }
     }
 }
