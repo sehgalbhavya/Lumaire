@@ -8,15 +8,24 @@ export class GestureEngine {
 
         // Control state tracking for each hand
         this.controlState = {
-            // Right hand: Master volume control
+            // Right hand: Master volume control (pinch)
             Right: { isPinching: false, startY: 0, startValue: 0, hasMoved: false },
-            // Left hand: Crossfader control
-            Left: { isPinching: false, startX: 0, startValue: 0, hasMoved: false }
+            // Left hand: Crossfader control (pinch)
+            Left: { isPinching: false, startY: 0, startValue: 0, hasMoved: false }
+        };
+
+        // EQ control state tracking for fist gestures
+        this.eqControlState = {
+            // Right fist: Bass control
+            Right: { isFist: false, startY: 0, startValue: 0 },
+            // Left fist: Treble control
+            Left: { isFist: false, startY: 0, startValue: 0 }
         };
 
         // Sensitivity settings
         this.volumeSensitivity = 0.3;  // For master volume (vertical movement)
-        this.crossfaderSensitivity = 0.5;  // For crossfader (horizontal movement)
+        this.crossfaderSensitivity = 0.5;  // For crossfader (vertical movement)
+        this.eqSensitivity = 0.25;  // For bass/treble (vertical movement)
 
         // Minimum movement threshold to distinguish tap from drag
         this.movementThreshold = 0.03;
@@ -44,6 +53,16 @@ export class GestureEngine {
 
             // Get control state for this hand
             const controlState = this.controlState[label];
+            const eqState = this.eqControlState[label];
+
+            // Determine what this hand is controlling
+            let controlType = label === 'Right' ? 'Master Volume' : 'Crossfader';
+            let isControlling = controlState.isPinching && controlState.hasMoved;
+
+            if (gesture === 'Closed' && !pinches.index) {
+                controlType = label === 'Right' ? 'Bass (Fist)' : 'Treble (Fist)';
+                isControlling = eqState.isFist;
+            }
 
             // Store data for visualization
             handsData.push({
@@ -51,8 +70,8 @@ export class GestureEngine {
                 landmarks,
                 gesture,
                 pinches,
-                isControlling: controlState.isPinching && controlState.hasMoved,
-                controlType: label === 'Right' ? 'Master Volume' : 'Crossfader'
+                isControlling,
+                controlType
             });
 
             // Update pinch states
@@ -69,11 +88,11 @@ export class GestureEngine {
             // HAND-SPECIFIC CONTROLS
             // =============================================
             if (label === 'Right') {
-                // RIGHT HAND: Play/Pause (tap) + Master Volume (drag up/down)
-                this.handleRightHandGesture(landmarks, pinches);
+                // RIGHT HAND: Play/Pause (tap) + Master Volume (pinch drag)
+                this.handleRightHandGesture(landmarks, pinches, gesture);
             } else {
-                // LEFT HAND: Crossfader control (drag left/right)
-                this.handleLeftHandGesture(landmarks, pinches);
+                // LEFT HAND: Crossfader control (pinch drag)
+                this.handleLeftHandGesture(landmarks, pinches, gesture);
             }
 
             this.lastPinchState[label] = pinches;
@@ -120,14 +139,54 @@ export class GestureEngine {
      * RIGHT HAND CONTROLS:
      * - Quick pinch (tap) = Toggle Play/Pause for ALL tracks
      * - Pinch + UP/DOWN = Master Volume control
+     * - Fist (Closed hand) + UP/DOWN = Bass control
      */
-    handleRightHandGesture(landmarks, pinches) {
+    handleRightHandGesture(landmarks, pinches, gesture) {
         const state = stateStore.getState();
         const controlState = this.controlState.Right;
-        const isPinching = pinches.index;
+        const eqState = this.eqControlState.Right;
+
+        // FIST detection: If hand is closed, it's a fist (takes priority over pinch)
+        const isFist = gesture === 'Closed';
+        // PINCH detection: Only valid when hand is OPEN (not a fist)
+        const isPinching = gesture === 'Open' && pinches.index;
 
         // Get current hand Y position (use wrist for stability)
         const currentY = landmarks[0].y;
+
+        // =============================================
+        // FIST CONTROL (Bass) - Takes priority when fist is detected
+        // =============================================
+        if (isFist) {
+            // Cancel any ongoing pinch control
+            if (controlState.isPinching) {
+                controlState.isPinching = false;
+                controlState.hasMoved = false;
+            }
+
+            if (!eqState.isFist) {
+                // Fist started
+                eqState.isFist = true;
+                eqState.startY = currentY;
+                eqState.startValue = state.bass;
+                console.log(`Right Fist: Bass control started at ${(state.bass * 100).toFixed(0)}%`);
+            } else {
+                // Fist held - adjust bass
+                const deltaY = currentY - eqState.startY;
+                // Moving UP = boost bass, moving DOWN = cut bass
+                const bassChange = -deltaY / this.eqSensitivity;
+                let newBass = eqState.startValue + bassChange;
+                newBass = Math.max(-1, Math.min(1, newBass));
+                audioEngine.setBass(newBass);
+            }
+            return; // Don't process pinch while fist is active
+        } else if (eqState.isFist) {
+            // Fist released
+            eqState.isFist = false;
+            const finalBass = stateStore.getState().bass;
+            const dbValue = (finalBass * 12).toFixed(0);
+            console.log(`Right Fist: Bass set to ${dbValue > 0 ? '+' : ''}${dbValue}dB`);
+        }
 
         // =============================================
         // PINCH STARTED
@@ -179,17 +238,56 @@ export class GestureEngine {
 
     /**
      * LEFT HAND CONTROLS:
-     * - Pinch + MOVE (horizontal or vertical) = Crossfader control
+     * - Pinch + MOVE (vertical) = Crossfader control
      * - 0% = Track A only, 50% = Both, 100% = Track B only
+     * - Fist + UP/DOWN = Treble control
      */
-    handleLeftHandGesture(landmarks, pinches) {
+    handleLeftHandGesture(landmarks, pinches, gesture) {
         const state = stateStore.getState();
         const controlState = this.controlState.Left;
-        const isPinching = pinches.index;
+        const eqState = this.eqControlState.Left;
+
+        // FIST detection: If hand is closed, it's a fist (takes priority over pinch)
+        const isFist = gesture === 'Closed';
+        // PINCH detection: Only valid when hand is OPEN (not a fist)
+        const isPinching = gesture === 'Open' && pinches.index;
 
         // Use Y position for crossfader (up = Track A, down = Track B)
-        // This is more natural for the gesture
         const currentY = landmarks[0].y;
+
+        // =============================================
+        // FIST CONTROL (Treble) - Takes priority when fist is detected
+        // =============================================
+        if (isFist) {
+            // Cancel any ongoing pinch control
+            if (controlState.isPinching) {
+                controlState.isPinching = false;
+                controlState.hasMoved = false;
+            }
+
+            if (!eqState.isFist) {
+                // Fist started
+                eqState.isFist = true;
+                eqState.startY = currentY;
+                eqState.startValue = state.treble;
+                console.log(`Left Fist: Treble control started at ${(state.treble * 100).toFixed(0)}%`);
+            } else {
+                // Fist held - adjust treble
+                const deltaY = currentY - eqState.startY;
+                // Moving UP = boost treble, moving DOWN = cut treble
+                const trebleChange = -deltaY / this.eqSensitivity;
+                let newTreble = eqState.startValue + trebleChange;
+                newTreble = Math.max(-1, Math.min(1, newTreble));
+                audioEngine.setTreble(newTreble);
+            }
+            return; // Don't process pinch while fist is active
+        } else if (eqState.isFist) {
+            // Fist released
+            eqState.isFist = false;
+            const finalTreble = stateStore.getState().treble;
+            const dbValue = (finalTreble * 12).toFixed(0);
+            console.log(`Left Fist: Treble set to ${dbValue > 0 ? '+' : ''}${dbValue}dB`);
+        }
 
         // =============================================
         // PINCH STARTED

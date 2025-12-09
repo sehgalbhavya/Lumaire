@@ -185,6 +185,16 @@ body {
   border-color: rgba(138, 43, 226, 0.3);
 }
 
+.status-display.bass {
+  color: #ff6b35;
+  border-color: rgba(255, 107, 53, 0.3);
+}
+
+.status-display.treble {
+  color: #4ecdc4;
+  border-color: rgba(78, 205, 196, 0.3);
+}
+
 /* Hints Section */
 .hints {
   padding: 14px;

@@ -15,6 +15,10 @@ class StateStore {
             crossfaderPosition: 0.5, // 0 to 1 - Crossfader (Left hand pinch + move)
             // 0 = Track A only, 0.5 = Both tracks, 1 = Track B only
 
+            // EQ Controls (Right fist = bass, Left fist = treble)
+            bass: 0, // -1 to +1 (-12dB to +12dB)
+            treble: 0, // -1 to +1 (-12dB to +12dB)
+
             // Track A (was left track)
             trackALoaded: false,
             trackAPlaying: false,
