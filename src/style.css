@@ -38,6 +38,34 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
+/* Branding Header */
+.brand-header {
+  text-align: center;
+  margin-bottom: 24px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.brand-name {
+  margin: 0 0 6px 0;
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  background: linear-gradient(135deg, #ffffff 0%, rgba(200, 180, 140, 0.9) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.brand-tagline {
+  margin: 0;
+  font-size: 10px;
+  font-weight: 250;
+  color: rgba(255, 255, 255, 0.5);
+  letter-spacing: 1.8px;
+  text-transform: uppercase;
+}
+
 /* Track Control Boxes */
 .track-control {
   margin-bottom: 16px;
@@ -167,6 +195,24 @@ body {
 .status-display.treble {
   color: #A8C5D9;
   border-color: rgba(168, 197, 217, 0.2);
+}
+
+/* Interactive Slider Styling */
+.status-display.slider {
+  cursor: ew-resize;
+  user-select: none;
+  transition: all 0.15s ease;
+}
+
+.status-display.slider:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.status-display.slider:active,
+.status-display.slider.dragging {
+  background: rgba(255, 255, 255, 0.12);
+  transform: scale(0.98);
 }
 
 /* Hints Section - Collapsible */
