@@ -24,7 +24,7 @@ export class GestureEngine {
 
         // Sensitivity settings
         this.volumeSensitivity = 0.3;  // For master volume (vertical movement)
-        this.crossfaderSensitivity = 0.5;  // For crossfader (vertical movement)
+        this.crossfaderSensitivity = 0.25;  // For crossfader (horizontal movement)
         this.eqSensitivity = 0.25;  // For bass/treble (vertical movement)
 
         // Minimum movement threshold to distinguish tap from drag
