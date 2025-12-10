@@ -48,7 +48,11 @@ export class AudioEngine {
             gain: 0
         }).connect(this.bassFilter);
 
-        console.log('EQ Filters initialized: Bass (200Hz), Treble (3000Hz)');
+        // FFT Analyzer for Audio Visualization (128 bins for edge detail)
+        this.analyser = new Tone.Analyser('fft', 128);
+        this.bassFilter.connect(this.analyser);
+
+        console.log('EQ Filters & Analyser initialized');
 
         // Initialize Instruments (for sequencer - keeping for backwards compatibility)
         this.instruments = {

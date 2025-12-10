@@ -15,20 +15,18 @@
 
     <!-- DJ Control Panel -->
     <div id="track-panel">
-      <h3>🎧 DJ Gesture Mixer</h3>
+      <!-- <h3>🎧 DJ Gesture Mixer</h3> -->
 
       <!-- Track A -->
       <div class="track-control track-a">
         <label>🟢 Track A:</label>
         <input type="file" id="track-a-input" accept="audio/*">
-        <div id="track-a-status" class="track-status">No file loaded</div>
       </div>
 
       <!-- Track B -->
       <div class="track-control track-b">
         <label>🔴 Track B:</label>
         <input type="file" id="track-b-input" accept="audio/*">
-        <div id="track-b-status" class="track-status">No file loaded</div>
       </div>
 
       <!-- Play All Button -->
@@ -39,35 +37,39 @@
         <div id="master-volume-display" class="status-display master">Master: 70%</div>
         <div id="crossfader-display" class="status-display crossfader">Crossfader: 50%</div>
       </div>
-      <div class="status-row"></div>
+      <div class="status-row">
         <div id="bass-display" class="status-display bass">Bass: 0dB</div>
         <div id="treble-display" class="status-display treble">Treble: 0dB</div>
       </div>
 
-      <!-- Control Hints -->
-      <div class="hints">
-        <div class="hint-section">
-          <span class="hint-icon">🖐️</span>
-          <div class="hint-content">
-            <strong>Right Hand</strong>
-            <p>Pinch = Play/Pause</p>
-            <p>Pinch + ↕ = Master Volume</p>
-          </div>
+      <!-- Control Hints (Collapsible) -->
+      <div id="hints-panel" class="hints">
+        <div id="hints-header" class="hints-header">
+          <span>Gesture Controls</span>
+          <span class="hints-toggle">▼</span>
         </div>
-        <div class="hint-section">
-          <span class="hint-icon">🖐️</span>
-          <div class="hint-content">
-            <strong>Left Hand</strong>
-            <p>Pinch + ↕ = Crossfader</p>
-            <p class="fade-hint">↑ Track A | ↓ Track B</p>
+        <div id="hints-content" class="hints-content">
+          <div class="hint-section">
+            <span class="hint-icon">🖐️</span>
+            <div class="hint-content">
+              <strong>Right Hand</strong>
+              <p>Pinch = Play/Pause</p>
+              <p>Pinch + ↕ = Volume</p>
+            </div>
           </div>
-        </div>
-        <div class="hint-section">
-          <span class="hint-icon">✊</span>
-          <div class="hint-content">
-            <strong>Fist Gestures (EQ)</strong>
-            <p>Right Fist + ↕ = Bass</p>
-            <p>Left Fist + ↕ = Treble</p>
+          <div class="hint-section">
+            <span class="hint-icon">🖐️</span>
+            <div class="hint-content">
+              <strong>Left Hand</strong>
+              <p>Pinch + ↕ = Crossfader</p>
+            </div>
+          </div>
+          <div class="hint-section">
+            <span class="hint-icon">✊</span>
+            <div class="hint-content">
+              <strong>Fist Gestures</strong>
+              <p>Right = Bass | Left = Treble</p>
+            </div>
           </div>
         </div>
       </div>
