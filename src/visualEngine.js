@@ -1,5 +1,6 @@
 import { stateStore } from './stateStore';
 import { HAND_CONNECTIONS } from '@mediapipe/hands';
+import { audioEngine } from './audioEngine';
 
 export class VisualEngine {
     constructor() {
@@ -61,6 +62,9 @@ export class VisualEngine {
 
         ctx.restore();
 
+        // Draw Audio Visualizer (edge waves)
+        this.drawAudioVisualizer(ctx, width, height);
+
         // Draw DJ UI (not mirrored, full canvas overlay)
         const state = stateStore.getState();
         this.drawDJInterface(ctx, width, height, state);
@@ -102,24 +106,17 @@ export class VisualEngine {
     drawDJInterface(ctx, width, height, state) {
         ctx.save();
 
-        // Bottom Y position for all volume indicators
+        // Bottom Y position for controls
         const bottomY = height - 150;
 
         // Draw crossfader at bottom center
         this.drawCrossfader(ctx, width / 2, height - 60, state);
 
-        // Draw Track A indicator (bottom left)
-        this.drawTrackIndicator(ctx, 70, bottomY, 'A', state.trackALoaded, state.trackAPlaying, state);
-
-        // Draw Track B indicator (bottom right)
-        this.drawTrackIndicator(ctx, width - 70, bottomY, 'B', state.trackBLoaded, state.trackBPlaying, state);
-
-        // Draw master volume (bottom center-right, between crossfader and Track B)
-        this.drawMasterVolume(ctx, width - 180, bottomY, state);
-
-        // Draw EQ indicators (top left area)
-        this.drawEQIndicator(ctx, 60, 120, 'Bass', state.bass, '#ff6b35');
-        this.drawEQIndicator(ctx, 140, 120, 'Treble', state.treble, '#4ecdc4');
+        // Bottom right control group: Master + Bass + Treble
+        const rightGroupX = width - 140;
+        this.drawMasterVolume(ctx, rightGroupX, bottomY, state);
+        this.drawEQIndicator(ctx, rightGroupX - 50, bottomY, 'Bass', state.bass, '#F5C77E');
+        this.drawEQIndicator(ctx, rightGroupX + 50, bottomY, 'Treble', state.treble, '#A8C5D9');
 
         // Draw overall play status (top center)
         this.drawPlayStatus(ctx, width / 2, 50, state);
@@ -137,44 +134,44 @@ export class VisualEngine {
         const barY = y - barHeight / 2;
 
         // Background
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
         ctx.fillRect(barX, barY, barWidth, barHeight);
 
         // Border
-        ctx.strokeStyle = 'rgba(138, 43, 226, 0.8)';
-        ctx.lineWidth = 2;
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+        ctx.lineWidth = 1;
         ctx.strokeRect(barX, barY, barWidth, barHeight);
 
         // Track A side (left gradient)
         const leftGradient = ctx.createLinearGradient(barX, 0, barX + barWidth / 2, 0);
-        leftGradient.addColorStop(0, 'rgba(56, 239, 125, 0.8)');
-        leftGradient.addColorStop(1, 'rgba(56, 239, 125, 0.2)');
+        leftGradient.addColorStop(0, 'rgba(255, 255, 255, 0.4)');
+        leftGradient.addColorStop(1, 'rgba(255, 255, 255, 0.1)');
         ctx.fillStyle = leftGradient;
         ctx.fillRect(barX + 2, barY + 2, barWidth / 2 - 4, barHeight - 4);
 
         // Track B side (right gradient)
         const rightGradient = ctx.createLinearGradient(barX + barWidth / 2, 0, barX + barWidth, 0);
-        rightGradient.addColorStop(0, 'rgba(255, 107, 107, 0.2)');
-        rightGradient.addColorStop(1, 'rgba(255, 107, 107, 0.8)');
+        rightGradient.addColorStop(0, 'rgba(200, 180, 140, 0.1)');
+        rightGradient.addColorStop(1, 'rgba(200, 180, 140, 0.4)');
         ctx.fillStyle = rightGradient;
         ctx.fillRect(barX + barWidth / 2 + 2, barY + 2, barWidth / 2 - 4, barHeight - 4);
 
         // Crossfader position indicator (thumb)
         const thumbX = barX + state.crossfaderPosition * barWidth;
-        ctx.fillStyle = 'white';
-        ctx.fillRect(thumbX - 5, barY - 5, 10, barHeight + 10);
-        ctx.strokeStyle = 'rgba(138, 43, 226, 1)';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(thumbX - 5, barY - 5, 10, barHeight + 10);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+        ctx.fillRect(thumbX - 4, barY - 4, 8, barHeight + 8);
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(thumbX - 4, barY - 4, 8, barHeight + 8);
 
         // Labels
-        ctx.font = 'bold 12px Arial';
+        ctx.font = '500 11px Inter, sans-serif';
         ctx.textAlign = 'left';
-        ctx.fillStyle = '#38ef7d';
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
         ctx.fillText('A', barX + 10, barY + barHeight / 2 + 4);
 
         ctx.textAlign = 'right';
-        ctx.fillStyle = '#ff6b6b';
+        ctx.fillStyle = 'rgba(200, 180, 140, 0.7)';
         ctx.fillText('B', barX + barWidth - 10, barY + barHeight / 2 + 4);
 
         // Position percentage
@@ -206,32 +203,32 @@ export class VisualEngine {
         const barY = y - barHeight / 2;
 
         // Background
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
         ctx.fillRect(x - barWidth / 2, barY, barWidth, barHeight);
 
         // Border
-        ctx.strokeStyle = 'rgba(255, 215, 0, 0.8)';
-        ctx.lineWidth = 2;
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+        ctx.lineWidth = 1;
         ctx.strokeRect(x - barWidth / 2, barY, barWidth, barHeight);
 
         // Volume fill
         const fillHeight = state.masterVolume * barHeight;
         const gradient = ctx.createLinearGradient(0, barY + barHeight, 0, barY);
-        gradient.addColorStop(0, '#ffd700');
-        gradient.addColorStop(1, '#ff8c00');
+        gradient.addColorStop(0, 'rgba(255, 255, 255, 0.6)');
+        gradient.addColorStop(1, 'rgba(255, 255, 255, 0.3)');
 
         ctx.fillStyle = gradient;
         ctx.fillRect(x - barWidth / 2 + 2, barY + barHeight - fillHeight, barWidth - 4, fillHeight);
 
         // Volume percentage
-        ctx.fillStyle = 'white';
-        ctx.font = 'bold 12px Arial';
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+        ctx.font = '500 11px Inter, sans-serif';
         ctx.textAlign = 'center';
         ctx.fillText(`${Math.round(state.masterVolume * 100)}%`, x, barY - 8);
 
         // Label
-        ctx.fillStyle = '#ffd700';
-        ctx.font = 'bold 10px Arial';
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+        ctx.font = '500 9px Inter, sans-serif';
         ctx.fillText('MASTER', x, barY + barHeight + 15);
     }
 
@@ -260,44 +257,44 @@ export class VisualEngine {
         }
         effectiveVolume *= state.masterVolume;
 
-        const trackColor = trackLabel === 'A' ? '#38ef7d' : '#ff6b6b';
+        const trackColor = trackLabel === 'A' ? 'rgba(255, 255, 255, 0.8)' : 'rgba(200, 180, 140, 0.8)';
 
         // Background
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
         ctx.fillRect(x - barWidth / 2, barY, barWidth, barHeight);
 
         // Border
-        ctx.strokeStyle = isPlaying ? trackColor : 'rgba(100, 100, 100, 0.5)';
-        ctx.lineWidth = isPlaying ? 3 : 2;
+        ctx.strokeStyle = isPlaying ? trackColor : 'rgba(100, 100, 100, 0.3)';
+        ctx.lineWidth = isPlaying ? 2 : 1;
         ctx.strokeRect(x - barWidth / 2, barY, barWidth, barHeight);
 
         // Volume fill
         const fillHeight = effectiveVolume * barHeight;
         ctx.fillStyle = trackColor;
-        ctx.globalAlpha = isPlaying ? 0.8 : 0.3;
+        ctx.globalAlpha = isPlaying ? 0.6 : 0.2;
         ctx.fillRect(x - barWidth / 2 + 2, barY + barHeight - fillHeight, barWidth - 4, fillHeight);
         ctx.globalAlpha = 1;
 
         // Track label
-        ctx.fillStyle = isLoaded ? trackColor : '#666';
-        ctx.font = 'bold 14px Arial';
+        ctx.fillStyle = isLoaded ? trackColor : 'rgba(100, 100, 100, 0.5)';
+        ctx.font = '500 12px Inter, sans-serif';
         ctx.textAlign = 'center';
         ctx.fillText(`Track ${trackLabel}`, x, barY - 8);
 
         // Status
-        ctx.font = '12px Arial';
+        ctx.font = '400 10px Inter, sans-serif';
         if (!isLoaded) {
-            ctx.fillStyle = '#666';
+            ctx.fillStyle = 'rgba(100, 100, 100, 0.5)';
             ctx.fillText('No File', x, barY + barHeight + 20);
         } else {
-            ctx.fillStyle = isPlaying ? trackColor : '#888';
+            ctx.fillStyle = isPlaying ? trackColor : 'rgba(150, 150, 150, 0.6)';
             ctx.fillText(isPlaying ? '▶ Playing' : '⏸ Paused', x, barY + barHeight + 20);
         }
 
         // Effective volume
-        ctx.font = '10px Arial';
-        ctx.fillStyle = '#aaa';
-        ctx.fillText(`${Math.round(effectiveVolume * 100)}%`, x, barY + barHeight + 38);
+        ctx.font = '400 9px Inter, sans-serif';
+        ctx.fillStyle = 'rgba(150, 150, 150, 0.6)';
+        ctx.fillText(`${Math.round(effectiveVolume * 100)}%`, x, barY + barHeight + 35);
     }
 
     /**
@@ -311,16 +308,16 @@ export class VisualEngine {
         const centerY = y; // Center line (neutral position)
 
         // Background
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
         ctx.fillRect(x - barWidth / 2, barY, barWidth, barHeight);
 
         // Border
         ctx.strokeStyle = color;
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 1;
         ctx.strokeRect(x - barWidth / 2, barY, barWidth, barHeight);
 
         // Center line (neutral)
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
         ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.moveTo(x - barWidth / 2, centerY);
@@ -328,31 +325,27 @@ export class VisualEngine {
         ctx.stroke();
 
         // Value fill
-        // Positive value (boost): fill upward from center
-        // Negative value (cut): fill downward from center
         const fillHeight = Math.abs(value) * (barHeight / 2);
         ctx.fillStyle = color;
-        ctx.globalAlpha = 0.7;
+        ctx.globalAlpha = 0.5;
 
         if (value >= 0) {
-            // Boost: fill upward
             ctx.fillRect(x - barWidth / 2 + 3, centerY - fillHeight, barWidth - 6, fillHeight);
         } else {
-            // Cut: fill downward
             ctx.fillRect(x - barWidth / 2 + 3, centerY, barWidth - 6, fillHeight);
         }
         ctx.globalAlpha = 1;
 
         // Label
         ctx.fillStyle = color;
-        ctx.font = 'bold 10px Arial';
+        ctx.font = '500 9px Inter, sans-serif';
         ctx.textAlign = 'center';
         ctx.fillText(label, x, barY - 8);
 
         // dB value
         const dbValue = Math.round(value * 12);
-        ctx.fillStyle = 'white';
-        ctx.font = 'bold 11px Arial';
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+        ctx.font = '500 10px Inter, sans-serif';
         ctx.fillText(`${dbValue >= 0 ? '+' : ''}${dbValue}dB`, x, barY + barHeight + 15);
     }
 
@@ -362,14 +355,14 @@ export class VisualEngine {
     drawPlayStatus(ctx, x, y, state) {
         const isPlaying = state.trackAPlaying || state.trackBPlaying;
 
-        ctx.font = 'bold 24px Arial';
+        ctx.font = '600 20px Inter, sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillStyle = isPlaying ? '#ffd700' : '#888';
+        ctx.fillStyle = isPlaying ? 'rgba(255, 255, 255, 0.9)' : 'rgba(100, 100, 100, 0.6)';
         ctx.fillText(isPlaying ? '▶ PLAYING' : '⏸ PAUSED', x, y);
 
-        ctx.font = '12px Arial';
-        ctx.fillStyle = '#666';
-        ctx.fillText('Right Hand: Quick Pinch to Play/Pause', x, y + 20);
+        ctx.font = '400 11px Inter, sans-serif';
+        ctx.fillStyle = 'rgba(150, 150, 150, 0.5)';
+        ctx.fillText('Right Hand: Quick Pinch to Play/Pause', x, y + 22);
     }
 
     drawHandInfo(handsData, width, height, dx, dy, dw, dh) {
@@ -420,6 +413,114 @@ export class VisualEngine {
             }
         });
         this.ctx.restore();
+    }
+    /**
+     * Draw audio-reactive visualizer around canvas edges
+     * Continuous gradient waves - futuristic minimal style
+     */
+    drawAudioVisualizer(ctx, width, height) {
+        // Get FFT data (or use idle animation if no audio)
+        let fftData = null;
+        if (audioEngine.analyser) {
+            fftData = audioEngine.analyser.getValue();
+        }
+
+        const points = 48;
+        const maxWaveHeight = 35;
+        const edgeOffset = 2;
+
+        ctx.save();
+        ctx.lineWidth = 1.5;
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = 'rgba(255, 255, 255, 0.2)';
+
+        const getWaveValue = (index, total, offset = 0) => {
+            if (!fftData) {
+                const time = Date.now() / 1000;
+                return 0.12 + Math.sin(time * 1.5 + (index + offset) * 0.1) * 0.08;
+            }
+            const binIndex = Math.floor((index / total) * fftData.length);
+            const dB = fftData[binIndex] || -100;
+            return Math.max(0, (dB + 100) / 100);
+        };
+
+        // ========== TOP EDGE ==========
+        ctx.beginPath();
+        ctx.moveTo(0, edgeOffset);
+        for (let i = 0; i <= points; i++) {
+            const x = (i / points) * width;
+            const value = getWaveValue(i, points, 0);
+            const y = edgeOffset + value * maxWaveHeight;
+            ctx.lineTo(x, y);
+        }
+        ctx.lineTo(width, edgeOffset);
+        ctx.lineTo(0, edgeOffset);
+        ctx.closePath();
+
+        const topGrad = ctx.createLinearGradient(0, 0, 0, maxWaveHeight + edgeOffset);
+        topGrad.addColorStop(0, 'rgba(255, 255, 255, 0.4)');
+        topGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+        ctx.fillStyle = topGrad;
+        ctx.fill();
+
+        // ========== BOTTOM EDGE ==========
+        ctx.beginPath();
+        ctx.moveTo(0, height - edgeOffset);
+        for (let i = 0; i <= points; i++) {
+            const x = (i / points) * width;
+            const value = getWaveValue(i, points, points);
+            const y = height - edgeOffset - value * maxWaveHeight;
+            ctx.lineTo(x, y);
+        }
+        ctx.lineTo(width, height - edgeOffset);
+        ctx.lineTo(0, height - edgeOffset);
+        ctx.closePath();
+
+        const bottomGrad = ctx.createLinearGradient(0, height, 0, height - maxWaveHeight - edgeOffset);
+        bottomGrad.addColorStop(0, 'rgba(200, 180, 140, 0.4)');
+        bottomGrad.addColorStop(1, 'rgba(200, 180, 140, 0)');
+        ctx.fillStyle = bottomGrad;
+        ctx.fill();
+
+        // ========== LEFT EDGE ==========
+        ctx.beginPath();
+        ctx.moveTo(edgeOffset, 0);
+        for (let i = 0; i <= points; i++) {
+            const y = (i / points) * height;
+            const value = getWaveValue(i, points, points * 2);
+            const x = edgeOffset + value * maxWaveHeight;
+            ctx.lineTo(x, y);
+        }
+        ctx.lineTo(edgeOffset, height);
+        ctx.lineTo(edgeOffset, 0);
+        ctx.closePath();
+
+        const leftGrad = ctx.createLinearGradient(0, 0, maxWaveHeight + edgeOffset, 0);
+        leftGrad.addColorStop(0, 'rgba(255, 255, 255, 0.4)');
+        leftGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+        ctx.fillStyle = leftGrad;
+        ctx.fill();
+
+        // ========== RIGHT EDGE ==========
+        ctx.beginPath();
+        ctx.moveTo(width - edgeOffset, 0);
+        for (let i = 0; i <= points; i++) {
+            const y = (i / points) * height;
+            const value = getWaveValue(i, points, points * 3);
+            const x = width - edgeOffset - value * maxWaveHeight;
+            ctx.lineTo(x, y);
+        }
+        ctx.lineTo(width - edgeOffset, height);
+        ctx.lineTo(width - edgeOffset, 0);
+        ctx.closePath();
+
+        const rightGrad = ctx.createLinearGradient(width, 0, width - maxWaveHeight - edgeOffset, 0);
+        rightGrad.addColorStop(0, 'rgba(200, 180, 140, 0.4)');
+        rightGrad.addColorStop(1, 'rgba(200, 180, 140, 0)');
+        ctx.fillStyle = rightGrad;
+        ctx.fill();
+
+        ctx.restore();
     }
 }
 

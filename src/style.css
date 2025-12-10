@@ -4,11 +4,11 @@ body {
   width: 100vw;
   height: 100vh;
   overflow: hidden;
-  background-color: #1e1e1e;
+  background-color: #0a0a0a;
   display: flex;
   justify-content: center;
   align-items: center;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-family: 'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
 #output_canvas {
@@ -20,203 +20,230 @@ body {
   object-fit: contain;
 }
 
-/* DJ Control Panel */
+/* DJ Control Panel - Premium Glass Effect */
 #track-panel {
   position: absolute;
   top: 20px;
   right: 20px;
-  background: rgba(0, 0, 0, 0.8);
-  backdrop-filter: blur(15px);
-  border-radius: 16px;
-  padding: 20px;
-  color: white;
+  background: rgba(18, 18, 18, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: 20px;
+  padding: 24px;
+  color: #fafafa;
   z-index: 1000;
-  min-width: 300px;
-  max-width: 340px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-#track-panel h3 {
-  margin: 0 0 18px 0;
-  font-size: 20px;
-  font-weight: 700;
-  text-align: center;
-  background: linear-gradient(135deg, #ffd700, #ff8c00);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  letter-spacing: 0.5px;
+  min-width: 280px;
+  max-width: 320px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 /* Track Control Boxes */
 .track-control {
-  margin-bottom: 14px;
-  padding: 14px;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 12px;
-  border-left: 4px solid #667eea;
-  transition: all 0.3s ease;
+  margin-bottom: 16px;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 14px;
+  border-left: 3px solid rgba(255, 255, 255, 0.2);
+  transition: all 0.2s ease;
 }
 
 .track-control:hover {
-  background: rgba(255, 255, 255, 0.08);
-  transform: translateX(2px);
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .track-control.track-a {
-  border-left-color: #38ef7d;
+  border-left-color: rgba(255, 255, 255, 0.6);
 }
 
 .track-control.track-b {
-  border-left-color: #ff6b6b;
+  border-left-color: rgba(200, 180, 140, 0.6);
 }
 
 .track-control label {
   display: block;
-  margin-bottom: 10px;
-  font-weight: 600;
-  font-size: 14px;
-  color: #e0e0e0;
+  margin-bottom: 12px;
+  font-weight: 500;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.9);
+  letter-spacing: 0.3px;
 }
 
 .track-control.track-a label {
-  color: #38ef7d;
+  color: rgba(255, 255, 255, 0.95);
 }
 
 .track-control.track-b label {
-  color: #ff6b6b;
+  color: rgba(220, 200, 160, 0.95);
 }
 
 .track-control input[type="file"] {
   width: 100%;
-  margin-bottom: 8px;
-  font-size: 12px;
-  color: #ccc;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
 }
 
 .track-control input[type="file"]::file-selector-button {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  border: none;
-  padding: 10px 18px;
-  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  padding: 10px 16px;
+  border-radius: 10px;
   cursor: pointer;
-  font-weight: 600;
-  font-size: 12px;
-  margin-right: 12px;
+  font-weight: 500;
+  font-size: 11px;
+  margin-right: 10px;
   transition: all 0.2s ease;
-  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
 }
 
 .track-control input[type="file"]::file-selector-button:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.5);
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.25);
 }
 
-.track-status {
-  font-size: 12px;
-  color: #888;
-  padding: 8px 12px;
-  background: rgba(0, 0, 0, 0.3);
-  border-radius: 6px;
-  text-align: center;
-  margin-top: 8px;
-}
-
-.track-status.loaded {
-  color: #38ef7d;
-  background: rgba(56, 239, 125, 0.1);
-}
-
-/* Play All Button */
+/* Play All Button - Subtle Premium */
 .play-all-btn {
   width: 100%;
-  background: linear-gradient(135deg, #ffd700 0%, #ff8c00 100%);
-  color: #1a1a1a;
-  border: none;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.06) 100%);
+  color: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.15);
   padding: 14px 24px;
-  border-radius: 12px;
+  border-radius: 14px;
   cursor: pointer;
-  font-weight: 700;
-  font-size: 16px;
-  transition: all 0.3s ease;
+  font-weight: 600;
+  font-size: 14px;
+  transition: all 0.2s ease;
   margin: 16px 0;
   text-transform: uppercase;
-  letter-spacing: 1.5px;
-  box-shadow: 0 4px 15px rgba(255, 215, 0, 0.3);
+  letter-spacing: 2px;
 }
 
 .play-all-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(255, 215, 0, 0.5);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0.1) 100%);
+  border-color: rgba(255, 255, 255, 0.25);
 }
 
 .play-all-btn:active {
-  transform: translateY(0);
+  transform: scale(0.98);
 }
 
-/* Status Displays */
+/* Status Displays - WCAG Compliant Contrast */
 .status-row {
   display: flex;
-  gap: 10px;
-  margin-bottom: 14px;
+  gap: 8px;
+  margin-bottom: 12px;
 }
 
 .status-display {
   flex: 1;
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 600;
   text-align: center;
-  padding: 10px 8px;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 10px 6px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.85);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .status-display.master {
-  color: #ffd700;
-  border-color: rgba(255, 215, 0, 0.3);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.15);
 }
 
 .status-display.crossfader {
-  color: #8a2be2;
-  border-color: rgba(138, 43, 226, 0.3);
+  color: #E8D5B5;
+  border-color: rgba(232, 213, 181, 0.2);
 }
 
 .status-display.bass {
-  color: #ff6b35;
-  border-color: rgba(255, 107, 53, 0.3);
+  color: #F5C77E;
+  border-color: rgba(245, 199, 126, 0.2);
 }
 
 .status-display.treble {
-  color: #4ecdc4;
-  border-color: rgba(78, 205, 196, 0.3);
+  color: #A8C5D9;
+  border-color: rgba(168, 197, 217, 0.2);
 }
 
-/* Hints Section */
+/* Hints Section - Collapsible */
 .hints {
-  padding: 14px;
+  margin-top: 16px;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  overflow: hidden;
+}
+
+.hints-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 14px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.75);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  transition: all 0.2s ease;
+}
+
+.hints-header:hover {
+  color: rgba(255, 255, 255, 0.95);
   background: rgba(255, 255, 255, 0.03);
-  border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.hints-toggle {
+  font-size: 10px;
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.hints.collapsed .hints-toggle {
+  transform: rotate(-90deg);
+}
+
+.hints-content {
+  max-height: 200px;
+  padding: 0 14px 14px 14px;
+  opacity: 1;
+  transform: translateY(0);
+  transition:
+    max-height 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
+    opacity 0.25s ease,
+    padding 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
+    transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+  overflow: hidden;
+}
+
+.hints.collapsed .hints-content {
+  max-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  opacity: 0;
+  transform: translateY(-8px);
 }
 
 .hint-section {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
-  margin-bottom: 12px;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
 }
 
 .hint-section:last-child {
-  margin-bottom: 0;
+  border-bottom: none;
+  padding-bottom: 0;
 }
 
 .hint-icon {
-  font-size: 20px;
+  font-size: 16px;
   line-height: 1;
+  opacity: 0.8;
 }
 
 .hint-content {
@@ -225,19 +252,14 @@ body {
 
 .hint-content strong {
   display: block;
-  color: #ccc;
-  margin-bottom: 4px;
-  font-size: 13px;
+  color: rgba(255, 255, 255, 0.9);
+  margin-bottom: 2px;
+  font-size: 11px;
+  font-weight: 600;
 }
 
 .hint-content p {
-  margin: 2px 0;
-  font-size: 11px;
-  color: #888;
-}
-
-.hint-content .fade-hint {
-  color: #8a2be2;
-  font-weight: 500;
-  margin-top: 4px;
+  margin: 1px 0;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.65);
 }

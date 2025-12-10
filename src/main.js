@@ -12,13 +12,13 @@ const canvasElement = document.getElementById('output_canvas')
 // Track upload elements
 const trackAInput = document.getElementById('track-a-input')
 const trackBInput = document.getElementById('track-b-input')
-const trackAStatus = document.getElementById('track-a-status')
-const trackBStatus = document.getElementById('track-b-status')
 const playAllBtn = document.getElementById('play-all-btn')
 const masterVolumeDisplay = document.getElementById('master-volume-display')
 const crossfaderDisplay = document.getElementById('crossfader-display')
 const bassDisplay = document.getElementById('bass-display')
 const trebleDisplay = document.getElementById('treble-display')
+const hintsPanel = document.getElementById('hints-panel')
+const hintsHeader = document.getElementById('hints-header')
 
 // Initialize Visual Engine
 visualEngine.init(canvasElement);
@@ -28,21 +28,19 @@ document.body.addEventListener('click', async () => {
     await audioEngine.init();
 }, { once: true });
 
+// Toggle hints panel collapse
+hintsHeader?.addEventListener('click', () => {
+    hintsPanel?.classList.toggle('collapsed');
+});
+
 // =============================================
 // TRACK UPLOAD HANDLERS
 // =============================================
 trackAInput?.addEventListener('change', async (e) => {
     const file = e.target.files[0];
     if (file) {
-        if (trackAStatus) {
-            trackAStatus.textContent = 'Loading...';
-        }
         await audioEngine.init();
         await audioEngine.loadTrack(file, 'A');
-        if (trackAStatus) {
-            trackAStatus.textContent = `✓ ${file.name}`;
-            trackAStatus.classList.add('loaded');
-        }
         console.log(`Track A loaded: ${file.name}`);
     }
 });
@@ -50,15 +48,8 @@ trackAInput?.addEventListener('change', async (e) => {
 trackBInput?.addEventListener('change', async (e) => {
     const file = e.target.files[0];
     if (file) {
-        if (trackBStatus) {
-            trackBStatus.textContent = 'Loading...';
-        }
         await audioEngine.init();
         await audioEngine.loadTrack(file, 'B');
-        if (trackBStatus) {
-            trackBStatus.textContent = `✓ ${file.name}`;
-            trackBStatus.classList.add('loaded');
-        }
         console.log(`Track B loaded: ${file.name}`);
     }
 });
@@ -79,7 +70,6 @@ stateStore.subscribe((state) => {
     if (masterVolumeDisplay) {
         const masterPercent = Math.round(state.masterVolume * 100);
         masterVolumeDisplay.textContent = `Master: ${masterPercent}%`;
-        masterVolumeDisplay.style.color = '#ffd700';
     }
 
     // Update crossfader display
@@ -94,21 +84,18 @@ stateStore.subscribe((state) => {
             description = 'Both';
         }
         crossfaderDisplay.textContent = `Crossfader: ${crossPercent}% (${description})`;
-        crossfaderDisplay.style.color = '#8a2be2';
     }
 
     // Update bass display
     if (bassDisplay) {
         const bassDb = Math.round(state.bass * 12);
         bassDisplay.textContent = `Bass: ${bassDb >= 0 ? '+' : ''}${bassDb}dB`;
-        bassDisplay.style.color = '#ff6b35';
     }
 
     // Update treble display
     if (trebleDisplay) {
         const trebleDb = Math.round(state.treble * 12);
         trebleDisplay.textContent = `Treble: ${trebleDb >= 0 ? '+' : ''}${trebleDb}dB`;
-        trebleDisplay.style.color = '#4ecdc4';
     }
 
     // Update play button text
