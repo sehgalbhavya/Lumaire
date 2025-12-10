@@ -1,6 +1,5 @@
 import { stateStore } from './stateStore';
 import { HAND_CONNECTIONS } from '@mediapipe/hands';
-import { drawConnectors, drawLandmarks } from '@mediapipe/drawing_utils';
 
 export class VisualEngine {
     constructor() {
@@ -30,6 +29,19 @@ export class VisualEngine {
         const width = this.canvas.width;
         const height = this.canvas.height;
 
+        // Video source dimensions (HD)
+        const videoWidth = 1280;
+        const videoHeight = 720;
+
+        // Calculate COVER scale (fill screen, crop excess)
+        const scale = Math.max(width / videoWidth, height / videoHeight);
+        const scaledWidth = videoWidth * scale;
+        const scaledHeight = videoHeight * scale;
+
+        // Center the video
+        const xOffset = (width - scaledWidth) / 2;
+        const yOffset = (height - scaledHeight) / 2;
+
         ctx.save();
         ctx.clearRect(0, 0, width, height);
 
@@ -37,23 +49,51 @@ export class VisualEngine {
         ctx.translate(width, 0);
         ctx.scale(-1, 1);
 
-        // Draw video
-        ctx.drawImage(results.image, 0, 0, width, height);
+        // Draw video (Cover mode)
+        ctx.drawImage(results.image, xOffset, yOffset, scaledWidth, scaledHeight);
 
-        // Draw Landmarks
+        // Draw Landmarks with custom scaling
         if (results.multiHandLandmarks) {
             for (const landmarks of results.multiHandLandmarks) {
-                drawConnectors(ctx, landmarks, HAND_CONNECTIONS, { color: '#00FF00', lineWidth: 5 });
-                drawLandmarks(ctx, landmarks, { color: '#FF0000', lineWidth: 2 });
+                this.drawSkeleton(ctx, landmarks, xOffset, yOffset, scaledWidth, scaledHeight);
             }
         }
 
         ctx.restore();
 
-        // Draw DJ UI (not mirrored)
+        // Draw DJ UI (not mirrored, full canvas overlay)
         const state = stateStore.getState();
         this.drawDJInterface(ctx, width, height, state);
-        this.drawHandInfo(handsData, width, height);
+
+        // Draw Hand Info (requires same coordinate transform as video)
+        this.drawHandInfo(handsData, width, height, xOffset, yOffset, scaledWidth, scaledHeight);
+    }
+
+    /**
+     * Custom skeleton drawer to match video scaling
+     */
+    drawSkeleton(ctx, landmarks, dx, dy, dw, dh) {
+        // Draw Connectors
+        ctx.lineWidth = 5;
+        ctx.strokeStyle = '#00FF00';
+        for (const [start, end] of HAND_CONNECTIONS) {
+            const p1 = landmarks[start];
+            const p2 = landmarks[end];
+            ctx.beginPath();
+            ctx.moveTo(p1.x * dw + dx, p1.y * dh + dy);
+            ctx.lineTo(p2.x * dw + dx, p2.y * dh + dy);
+            ctx.stroke();
+        }
+
+        // Draw Landmarks
+        ctx.fillStyle = '#FF0000';
+        for (const point of landmarks) {
+            const px = point.x * dw + dx;
+            const py = point.y * dh + dy;
+            ctx.beginPath();
+            ctx.arc(px, py, 3, 0, 2 * Math.PI); // Radius 3
+            ctx.fill();
+        }
     }
 
     /**
@@ -332,7 +372,7 @@ export class VisualEngine {
         ctx.fillText('Right Hand: Quick Pinch to Play/Pause', x, y + 20);
     }
 
-    drawHandInfo(handsData, width, height) {
+    drawHandInfo(handsData, width, height, dx, dy, dw, dh) {
         if (!handsData) return;
 
         this.ctx.save();
@@ -343,8 +383,10 @@ export class VisualEngine {
 
         handsData.forEach(hand => {
             const wrist = hand.landmarks[0];
-            const x = (1 - wrist.x) * width;
-            const y = wrist.y * height;
+            // Adjust coordinates to match video scaling and mirroring
+            // Video is mirrored so X is flipped relative to canvas width
+            const x = (1 - wrist.x) * dw + dx;
+            const y = wrist.y * dh + dy;
 
             // Show hand label and control type
             const controlType = hand.controlType || '';
@@ -356,8 +398,8 @@ export class VisualEngine {
             // Draw Pinch Indicators
             if (hand.pinches && hand.pinches.index) {
                 const indexTip = hand.landmarks[8];
-                const ix = (1 - indexTip.x) * width;
-                const iy = indexTip.y * height;
+                const ix = (1 - indexTip.x) * dw + dx;
+                const iy = indexTip.y * dh + dy;
 
                 // Circle indicator
                 this.ctx.beginPath();
