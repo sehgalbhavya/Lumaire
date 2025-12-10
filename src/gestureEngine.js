@@ -3,7 +3,7 @@ import { audioEngine } from './audioEngine';
 
 export class GestureEngine {
     constructor() {
-        this.pinchThreshold = 0.05;
+        this.pinchThreshold = 0.03; // Fingers must be very close (almost touching)
         this.lastPinchState = { Left: { index: false, middle: false }, Right: { index: false, middle: false } };
 
         // Control state tracking for each hand
