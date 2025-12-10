@@ -407,7 +407,7 @@ export class VisualEngine {
 
                 // Label
                 this.ctx.fillStyle = "white";
-                const label = hand.label === 'Right' ? 'MASTER ↕' : 'XFADE ↕';
+                const label = hand.label === 'Right' ? 'MASTER ↕' : 'XFADE ↔';
                 this.ctx.strokeText(label, ix + 25, iy);
                 this.ctx.fillText(label, ix + 25, iy);
             }

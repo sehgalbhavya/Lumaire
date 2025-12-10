@@ -11,7 +11,7 @@ export class GestureEngine {
             // Right hand: Master volume control (pinch)
             Right: { isPinching: false, startY: 0, startValue: 0, hasMoved: false },
             // Left hand: Crossfader control (pinch)
-            Left: { isPinching: false, startY: 0, startValue: 0, hasMoved: false }
+            Left: { isPinching: false, startX: 0, startValue: 0, hasMoved: false }
         };
 
         // EQ control state tracking for fist gestures
@@ -238,7 +238,7 @@ export class GestureEngine {
 
     /**
      * LEFT HAND CONTROLS:
-     * - Pinch + MOVE (vertical) = Crossfader control
+     * - Pinch + MOVE (horizontal) = Crossfader control
      * - 0% = Track A only, 50% = Both, 100% = Track B only
      * - Fist + UP/DOWN = Treble control
      */
@@ -252,7 +252,8 @@ export class GestureEngine {
         // PINCH detection: Only valid when hand is OPEN (not a fist)
         const isPinching = gesture === 'Open' && pinches.index;
 
-        // Use Y position for crossfader (up = Track A, down = Track B)
+        // Use X position for crossfader (left = Track A, right = Track B)
+        const currentX = landmarks[8].x;
         const currentY = landmarks[0].y;
 
         // =============================================
@@ -294,7 +295,7 @@ export class GestureEngine {
         // =============================================
         if (isPinching && !controlState.isPinching) {
             controlState.isPinching = true;
-            controlState.startY = currentY;
+            controlState.startX = currentX;
             controlState.startValue = state.crossfaderPosition;
             controlState.hasMoved = false;
             console.log(`Left Hand: Pinch Started - Crossfader: ${(state.crossfaderPosition * 100).toFixed(0)}%`);
@@ -303,15 +304,15 @@ export class GestureEngine {
         // PINCH HELD - Crossfader control
         // =============================================
         else if (isPinching && controlState.isPinching) {
-            const deltaY = currentY - controlState.startY;
-            const absDeltaY = Math.abs(deltaY);
+            const deltaX = currentX - controlState.startX;
+            const absDeltaX = Math.abs(deltaX);
 
-            if (absDeltaY > this.movementThreshold) {
+            if (absDeltaX > this.movementThreshold) {
                 controlState.hasMoved = true;
 
-                // Moving DOWN = towards Track B (increase crossfader)
-                // Moving UP = towards Track A (decrease crossfader)
-                const crossfaderChange = deltaY / this.crossfaderSensitivity;
+                // Moving RIGHT = towards Track B (increase crossfader)
+                // Moving LEFT = towards Track A (decrease crossfader)
+                const crossfaderChange = -deltaX / this.crossfaderSensitivity;
                 let newPosition = controlState.startValue + crossfaderChange;
                 newPosition = Math.max(0, Math.min(1, newPosition));
 
