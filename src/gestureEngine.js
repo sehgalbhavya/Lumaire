@@ -32,7 +32,7 @@ export class GestureEngine {
     }
 
     process(results) {
-        if (!results.multiHandLandmarks || !results.multiHandedness) return [];
+        if (!results.multiHandLandmarks || !results.multiHandedness) return [];c
 
         const handsData = [];
         const state = stateStore.getState();
