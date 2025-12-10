@@ -17,6 +17,8 @@ const trackBStatus = document.getElementById('track-b-status')
 const playAllBtn = document.getElementById('play-all-btn')
 const masterVolumeDisplay = document.getElementById('master-volume-display')
 const crossfaderDisplay = document.getElementById('crossfader-display')
+const bassDisplay = document.getElementById('bass-display')
+const trebleDisplay = document.getElementById('treble-display')
 
 // Initialize Visual Engine
 visualEngine.init(canvasElement);
@@ -93,6 +95,20 @@ stateStore.subscribe((state) => {
         }
         crossfaderDisplay.textContent = `Crossfader: ${crossPercent}% (${description})`;
         crossfaderDisplay.style.color = '#8a2be2';
+    }
+
+    // Update bass display
+    if (bassDisplay) {
+        const bassDb = Math.round(state.bass * 12);
+        bassDisplay.textContent = `Bass: ${bassDb >= 0 ? '+' : ''}${bassDb}dB`;
+        bassDisplay.style.color = '#ff6b35';
+    }
+
+    // Update treble display
+    if (trebleDisplay) {
+        const trebleDb = Math.round(state.treble * 12);
+        trebleDisplay.textContent = `Treble: ${trebleDb >= 0 ? '+' : ''}${trebleDb}dB`;
+        trebleDisplay.style.color = '#4ecdc4';
     }
 
     // Update play button text

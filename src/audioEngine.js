@@ -11,6 +11,10 @@ export class AudioEngine {
         this.trackAPlayer = null;
         this.trackBPlayer = null;
 
+        // EQ filters for bass and treble
+        this.bassFilter = null;
+        this.trebleFilter = null;
+
         // Pause state tracking for resume functionality
         this.pauseState = {
             A: { isPaused: false, pauseTime: 0, startTime: 0 },
@@ -28,6 +32,23 @@ export class AudioEngine {
 
         await Tone.start();
         console.log('Audio Engine Initialized');
+
+        // Initialize EQ filters
+        // Bass: Low-shelf filter at 200Hz
+        this.bassFilter = new Tone.Filter({
+            type: 'lowshelf',
+            frequency: 200,
+            gain: 0
+        }).toDestination();
+
+        // Treble: High-shelf filter at 3000Hz
+        this.trebleFilter = new Tone.Filter({
+            type: 'highshelf',
+            frequency: 3000,
+            gain: 0
+        }).connect(this.bassFilter);
+
+        console.log('EQ Filters initialized: Bass (200Hz), Treble (3000Hz)');
 
         // Initialize Instruments (for sequencer - keeping for backwards compatibility)
         this.instruments = {
@@ -120,6 +141,15 @@ export class AudioEngine {
             const dbB = trackBVolume === 0 ? -Infinity : -40 * (1 - trackBVolume);
             this.trackBPlayer.volume.value = dbB;
         }
+
+        // Apply EQ (bass and treble)
+        // Map -1 to +1 range to -12dB to +12dB
+        if (this.bassFilter) {
+            this.bassFilter.gain.value = state.bass * 12;
+        }
+        if (this.trebleFilter) {
+            this.trebleFilter.gain.value = state.treble * 12;
+        }
     }
 
     startSequencer() {
@@ -208,6 +238,7 @@ export class AudioEngine {
         this.pauseState[track] = { isPaused: false, pauseTime: 0, startTime: 0 };
 
         // Create new player with promise-based loading
+        // Connect through EQ chain: Player -> Treble -> Bass -> Destination
         return new Promise((resolve, reject) => {
             const player = new Tone.Player({
                 url: url,
@@ -242,7 +273,7 @@ export class AudioEngine {
                     console.error(`Error loading Track ${track}:`, error);
                     reject(error);
                 }
-            }).toDestination();
+            }).connect(this.trebleFilter); // Connect through EQ chain
         });
     }
 
@@ -357,6 +388,26 @@ export class AudioEngine {
     setCrossfaderPosition(position) {
         const clampedPosition = Math.max(0, Math.min(1, position));
         stateStore.setState({ crossfaderPosition: clampedPosition });
+    }
+
+    /**
+     * Set bass level (-1 to +1)
+     * -1 = -12dB cut, 0 = neutral, +1 = +12dB boost
+     * Used by right fist + up/down
+     */
+    setBass(level) {
+        const clampedLevel = Math.max(-1, Math.min(1, level));
+        stateStore.setState({ bass: clampedLevel });
+    }
+
+    /**
+     * Set treble level (-1 to +1)
+     * -1 = -12dB cut, 0 = neutral, +1 = +12dB boost
+     * Used by left fist + up/down
+     */
+    setTreble(level) {
+        const clampedLevel = Math.max(-1, Math.min(1, level));
+        stateStore.setState({ treble: clampedLevel });
     }
 }
 

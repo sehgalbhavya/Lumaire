@@ -1,6 +1,5 @@
 import { stateStore } from './stateStore';
 import { HAND_CONNECTIONS } from '@mediapipe/hands';
-import { drawConnectors, drawLandmarks } from '@mediapipe/drawing_utils';
 
 export class VisualEngine {
     constructor() {
@@ -30,6 +29,19 @@ export class VisualEngine {
         const width = this.canvas.width;
         const height = this.canvas.height;
 
+        // Video source dimensions (HD)
+        const videoWidth = 1280;
+        const videoHeight = 720;
+
+        // Calculate COVER scale (fill screen, crop excess)
+        const scale = Math.max(width / videoWidth, height / videoHeight);
+        const scaledWidth = videoWidth * scale;
+        const scaledHeight = videoHeight * scale;
+
+        // Center the video
+        const xOffset = (width - scaledWidth) / 2;
+        const yOffset = (height - scaledHeight) / 2;
+
         ctx.save();
         ctx.clearRect(0, 0, width, height);
 
@@ -37,23 +49,51 @@ export class VisualEngine {
         ctx.translate(width, 0);
         ctx.scale(-1, 1);
 
-        // Draw video
-        ctx.drawImage(results.image, 0, 0, width, height);
+        // Draw video (Cover mode)
+        ctx.drawImage(results.image, xOffset, yOffset, scaledWidth, scaledHeight);
 
-        // Draw Landmarks
+        // Draw Landmarks with custom scaling
         if (results.multiHandLandmarks) {
             for (const landmarks of results.multiHandLandmarks) {
-                drawConnectors(ctx, landmarks, HAND_CONNECTIONS, { color: '#00FF00', lineWidth: 5 });
-                drawLandmarks(ctx, landmarks, { color: '#FF0000', lineWidth: 2 });
+                this.drawSkeleton(ctx, landmarks, xOffset, yOffset, scaledWidth, scaledHeight);
             }
         }
 
         ctx.restore();
 
-        // Draw DJ UI (not mirrored)
+        // Draw DJ UI (not mirrored, full canvas overlay)
         const state = stateStore.getState();
         this.drawDJInterface(ctx, width, height, state);
-        this.drawHandInfo(handsData, width, height);
+
+        // Draw Hand Info (requires same coordinate transform as video)
+        this.drawHandInfo(handsData, width, height, xOffset, yOffset, scaledWidth, scaledHeight);
+    }
+
+    /**
+     * Custom skeleton drawer to match video scaling
+     */
+    drawSkeleton(ctx, landmarks, dx, dy, dw, dh) {
+        // Draw Connectors
+        ctx.lineWidth = 5;
+        ctx.strokeStyle = '#00FF00';
+        for (const [start, end] of HAND_CONNECTIONS) {
+            const p1 = landmarks[start];
+            const p2 = landmarks[end];
+            ctx.beginPath();
+            ctx.moveTo(p1.x * dw + dx, p1.y * dh + dy);
+            ctx.lineTo(p2.x * dw + dx, p2.y * dh + dy);
+            ctx.stroke();
+        }
+
+        // Draw Landmarks
+        ctx.fillStyle = '#FF0000';
+        for (const point of landmarks) {
+            const px = point.x * dw + dx;
+            const py = point.y * dh + dy;
+            ctx.beginPath();
+            ctx.arc(px, py, 3, 0, 2 * Math.PI); // Radius 3
+            ctx.fill();
+        }
     }
 
     /**
@@ -76,6 +116,10 @@ export class VisualEngine {
 
         // Draw master volume (bottom center-right, between crossfader and Track B)
         this.drawMasterVolume(ctx, width - 180, bottomY, state);
+
+        // Draw EQ indicators (top left area)
+        this.drawEQIndicator(ctx, 60, 120, 'Bass', state.bass, '#ff6b35');
+        this.drawEQIndicator(ctx, 140, 120, 'Treble', state.treble, '#4ecdc4');
 
         // Draw overall play status (top center)
         this.drawPlayStatus(ctx, width / 2, 50, state);
@@ -257,6 +301,62 @@ export class VisualEngine {
     }
 
     /**
+     * Draw EQ indicator (bass or treble)
+     * Value ranges from -1 (cut) to +1 (boost), 0 is neutral
+     */
+    drawEQIndicator(ctx, x, y, label, value, color) {
+        const barWidth = 25;
+        const barHeight = 80;
+        const barY = y - barHeight / 2;
+        const centerY = y; // Center line (neutral position)
+
+        // Background
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+        ctx.fillRect(x - barWidth / 2, barY, barWidth, barHeight);
+
+        // Border
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x - barWidth / 2, barY, barWidth, barHeight);
+
+        // Center line (neutral)
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(x - barWidth / 2, centerY);
+        ctx.lineTo(x + barWidth / 2, centerY);
+        ctx.stroke();
+
+        // Value fill
+        // Positive value (boost): fill upward from center
+        // Negative value (cut): fill downward from center
+        const fillHeight = Math.abs(value) * (barHeight / 2);
+        ctx.fillStyle = color;
+        ctx.globalAlpha = 0.7;
+
+        if (value >= 0) {
+            // Boost: fill upward
+            ctx.fillRect(x - barWidth / 2 + 3, centerY - fillHeight, barWidth - 6, fillHeight);
+        } else {
+            // Cut: fill downward
+            ctx.fillRect(x - barWidth / 2 + 3, centerY, barWidth - 6, fillHeight);
+        }
+        ctx.globalAlpha = 1;
+
+        // Label
+        ctx.fillStyle = color;
+        ctx.font = 'bold 10px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(label, x, barY - 8);
+
+        // dB value
+        const dbValue = Math.round(value * 12);
+        ctx.fillStyle = 'white';
+        ctx.font = 'bold 11px Arial';
+        ctx.fillText(`${dbValue >= 0 ? '+' : ''}${dbValue}dB`, x, barY + barHeight + 15);
+    }
+
+    /**
      * Draw overall play status
      */
     drawPlayStatus(ctx, x, y, state) {
@@ -272,7 +372,7 @@ export class VisualEngine {
         ctx.fillText('Right Hand: Quick Pinch to Play/Pause', x, y + 20);
     }
 
-    drawHandInfo(handsData, width, height) {
+    drawHandInfo(handsData, width, height, dx, dy, dw, dh) {
         if (!handsData) return;
 
         this.ctx.save();
@@ -283,8 +383,10 @@ export class VisualEngine {
 
         handsData.forEach(hand => {
             const wrist = hand.landmarks[0];
-            const x = (1 - wrist.x) * width;
-            const y = wrist.y * height;
+            // Adjust coordinates to match video scaling and mirroring
+            // Video is mirrored so X is flipped relative to canvas width
+            const x = (1 - wrist.x) * dw + dx;
+            const y = wrist.y * dh + dy;
 
             // Show hand label and control type
             const controlType = hand.controlType || '';
@@ -296,8 +398,8 @@ export class VisualEngine {
             // Draw Pinch Indicators
             if (hand.pinches && hand.pinches.index) {
                 const indexTip = hand.landmarks[8];
-                const ix = (1 - indexTip.x) * width;
-                const iy = indexTip.y * height;
+                const ix = (1 - indexTip.x) * dw + dx;
+                const iy = indexTip.y * dh + dy;
 
                 // Circle indicator
                 this.ctx.beginPath();
