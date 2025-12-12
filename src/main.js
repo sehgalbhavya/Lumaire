@@ -20,11 +20,6 @@ const trebleDisplay = document.getElementById('treble-display')
 const hintsPanel = document.getElementById('hints-panel')
 const hintsHeader = document.getElementById('hints-header')
 
-// Interactive slider state
-let activeSlider = null;
-let sliderStartX = 0;
-let sliderStartValue = 0;
-
 // Initialize Visual Engine
 visualEngine.init(canvasElement);
 
@@ -37,89 +32,6 @@ document.body.addEventListener('click', async () => {
 hintsHeader?.addEventListener('click', () => {
     hintsPanel?.classList.toggle('collapsed');
 });
-
-// =============================================
-// INTERACTIVE SLIDER FUNCTIONALITY
-// =============================================
-function initializeSliders() {
-    const sliders = document.querySelectorAll('.slider');
-
-    sliders.forEach(slider => {
-        slider.addEventListener('mousedown', (e) => {
-            e.preventDefault();
-            activeSlider = slider;
-            sliderStartX = e.clientX;
-            slider.classList.add('dragging');
-
-            const sliderType = slider.dataset.slider;
-            const state = stateStore.getState();
-
-            // Store starting value based on slider type
-            switch (sliderType) {
-                case 'volume':
-                    sliderStartValue = state.masterVolume;
-                    break;
-                case 'crossfader':
-                    sliderStartValue = state.crossfaderPosition;
-                    break;
-                case 'bass':
-                    sliderStartValue = state.bass;
-                    break;
-                case 'treble':
-                    sliderStartValue = state.treble;
-                    break;
-            }
-        });
-    });
-}
-
-// Global mouse move handler
-document.addEventListener('mousemove', (e) => {
-    if (!activeSlider) return;
-
-    const deltaX = e.clientX - sliderStartX;
-    const sliderType = activeSlider.dataset.slider;
-    const sensitivity = 0.003; // Adjust this for faster/slower dragging
-
-    let newValue;
-
-    switch (sliderType) {
-        case 'volume':
-            newValue = Math.max(0, Math.min(1, sliderStartValue + deltaX * sensitivity));
-            stateStore.setState({ masterVolume: newValue });
-            audioEngine.setMasterVolume(newValue);
-            break;
-
-        case 'crossfader':
-            newValue = Math.max(0, Math.min(1, sliderStartValue + deltaX * sensitivity));
-            stateStore.setState({ crossfaderPosition: newValue });
-            audioEngine.setCrossfader(newValue);
-            break;
-
-        case 'bass':
-            newValue = Math.max(-1, Math.min(1, sliderStartValue + deltaX * sensitivity * 2));
-            stateStore.setState({ bass: newValue });
-            audioEngine.setBass(newValue);
-            break;
-
-        case 'treble':
-            newValue = Math.max(-1, Math.min(1, sliderStartValue + deltaX * sensitivity * 2));
-            stateStore.setState({ treble: newValue });
-            audioEngine.setTreble(newValue);
-            break;
-    }
-});
-
-// Global mouse up handler
-document.addEventListener('mouseup', () => {
-    if (activeSlider) {
-        activeSlider.classList.remove('dragging');
-        activeSlider = null;
-    }
-});
-
-// Initialize sliders on load
-initializeSliders();
 
 // =============================================
 // TRACK UPLOAD HANDLERS

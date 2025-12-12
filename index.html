@@ -5,7 +5,7 @@
   <meta charset="UTF-8" />
   <link rel="icon" type="image/svg+xml" href="" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Lumaire - Gesture-Driven Audio Control</title>
+  <title>DJ Gesture Mixer</title>
 </head>
 
 <body>
@@ -15,11 +15,7 @@
 
     <!-- DJ Control Panel -->
     <div id="track-panel">
-      <!-- Branding Header -->
-      <div class="brand-header">
-        <h1 class="brand-name">LUMAIRE</h1>
-        <p class="brand-tagline">Gesture-Driven Audio Control</p>
-      </div>
+      <!-- <h3>🎧 DJ Gesture Mixer</h3> -->
 
       <!-- Track A -->
       <div class="track-control track-a">
@@ -36,15 +32,14 @@
       <!-- Play All Button -->
       <button id="play-all-btn" class="play-all-btn">▶️ Play All</button>
 
-      <!-- Status Displays - Now Interactive Sliders -->
+      <!-- Status Displays -->
       <div class="status-row">
-        <div id="master-volume-display" class="status-display master slider" data-slider="volume">Master: 70%</div>
-        <div id="crossfader-display" class="status-display crossfader slider" data-slider="crossfader">Crossfader: 50%
-        </div>
+        <div id="master-volume-display" class="status-display master">Master: 70%</div>
+        <div id="crossfader-display" class="status-display crossfader">Crossfader: 50%</div>
       </div>
       <div class="status-row">
-        <div id="bass-display" class="status-display bass slider" data-slider="bass">Bass: 0dB</div>
-        <div id="treble-display" class="status-display treble slider" data-slider="treble">Treble: 0dB</div>
+        <div id="bass-display" class="status-display bass">Bass: 0dB</div>
+        <div id="treble-display" class="status-display treble">Treble: 0dB</div>
       </div>
 
       <!-- Control Hints (Collapsible) -->
