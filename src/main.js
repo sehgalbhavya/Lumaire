@@ -216,6 +216,28 @@ hands.setOptions({
 
 hands.onResults(onResults)
 
+// Add video element event listeners for debugging
+videoElement.addEventListener('loadedmetadata', () => {
+    console.log('✅ Video metadata loaded');
+    console.log('Video dimensions:', videoElement.videoWidth, 'x', videoElement.videoHeight);
+})
+
+videoElement.addEventListener('loadeddata', () => {
+    console.log('✅ Video data loaded');
+})
+
+videoElement.addEventListener('canplay', () => {
+    console.log('✅ Video can play');
+})
+
+videoElement.addEventListener('play', () => {
+    console.log('✅ Video started playing');
+})
+
+videoElement.addEventListener('error', (e) => {
+    console.error('❌ Video element error:', e);
+})
+
 const camera = new Camera(videoElement, {
     onFrame: async () => {
         await hands.send({ image: videoElement })
@@ -224,4 +246,26 @@ const camera = new Camera(videoElement, {
     height: 720
 })
 
+console.log('🎥 Starting camera...');
 camera.start()
+    .then(() => {
+        console.log('✅ Camera.start() resolved successfully');
+        console.log('Video element srcObject:', videoElement.srcObject);
+        console.log('Video paused?', videoElement.paused);
+        console.log('Video ready state:', videoElement.readyState);
+
+        // Explicitly start video playback
+        if (videoElement.paused) {
+            console.log('📹 Manually starting video playback...');
+            videoElement.play()
+                .then(() => {
+                    console.log('✅ Video playback started!');
+                })
+                .catch((err) => {
+                    console.error('❌ Failed to start video playback:', err);
+                });
+        }
+    })
+    .catch((err) => {
+        console.error('❌ Camera.start() failed:', err);
+    })

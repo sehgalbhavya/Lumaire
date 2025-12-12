@@ -51,7 +51,20 @@ export class VisualEngine {
         ctx.scale(-1, 1);
 
         // Draw video (Cover mode)
-        ctx.drawImage(results.image, xOffset, yOffset, scaledWidth, scaledHeight);
+        if (results.image) {
+            try {
+                ctx.drawImage(results.image, xOffset, yOffset, scaledWidth, scaledHeight);
+            } catch (e) {
+                console.error('❌ Error drawing camera feed:', e);
+                console.log('Results object:', results);
+            }
+        } else {
+            // Debug: log once per second to avoid spam
+            if (!this._lastDebugTime || Date.now() - this._lastDebugTime > 1000) {
+                console.warn('⚠️ No image in results object');
+                this._lastDebugTime = Date.now();
+            }
+        }
 
         // Draw Landmarks with custom scaling
         if (results.multiHandLandmarks) {
