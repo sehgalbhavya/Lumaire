@@ -51,9 +51,10 @@ export class VisualEngine {
         ctx.scale(-1, 1);
 
         // Draw video (Cover mode)
-        if (results.image) {
+        const videoSource = results.image;
+        if (videoSource && videoSource.videoWidth && videoSource.videoWidth > 0) {
             try {
-                ctx.drawImage(results.image, xOffset, yOffset, scaledWidth, scaledHeight);
+                ctx.drawImage(videoSource, xOffset, yOffset, scaledWidth, scaledHeight);
             } catch (e) {
                 console.error('❌ Error drawing camera feed:', e);
                 console.log('Results object:', results);
