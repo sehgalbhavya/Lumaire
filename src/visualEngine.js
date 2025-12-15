@@ -71,6 +71,9 @@ export class VisualEngine {
 
         // Draw Hand Info (requires same coordinate transform as video)
         this.drawHandInfo(handsData, width, height, xOffset, yOffset, scaledWidth, scaledHeight);
+
+        // Easter Egg: Check for middle finger gesture
+        this.drawEasterEgg(handsData, width, height);
     }
 
     /**
@@ -521,6 +524,59 @@ export class VisualEngine {
         ctx.fill();
 
         ctx.restore();
+    }
+
+    /**
+     * Easter Egg: Display message when user shows middle finger
+     */
+    drawEasterEgg(handsData, width, height) {
+        if (!handsData) return;
+
+        // Check if any hand is showing middle finger
+        const hasMiddleFinger = handsData.some(hand => hand.isMiddleFinger);
+
+        if (hasMiddleFinger) {
+            this.ctx.save();
+
+            // Semi-transparent dark overlay
+            this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+            this.ctx.fillRect(0, 0, width, height);
+
+            // Configure text styling
+            this.ctx.textAlign = 'center';
+            this.ctx.textBaseline = 'middle';
+
+            // Main text with glow effect
+            const text = "Yeah, well F*** you too";
+            const centerX = width / 2;
+            const centerY = height / 2;
+
+            // Outer glow
+            this.ctx.shadowBlur = 40;
+            this.ctx.shadowColor = 'rgba(255, 0, 0, 0.8)';
+
+            // Text stroke (outline)
+            this.ctx.strokeStyle = '#000';
+            this.ctx.lineWidth = 8;
+            this.ctx.font = 'bold 72px Arial, sans-serif';
+            this.ctx.strokeText(text, centerX, centerY);
+
+            // Text fill
+            const gradient = this.ctx.createLinearGradient(0, centerY - 50, 0, centerY + 50);
+            gradient.addColorStop(0, '#ff0000');
+            gradient.addColorStop(0.5, '#ff6666');
+            gradient.addColorStop(1, '#ff0000');
+            this.ctx.fillStyle = gradient;
+            this.ctx.fillText(text, centerX, centerY);
+
+            // Add emoji below
+            this.ctx.shadowBlur = 20;
+            this.ctx.font = 'bold 60px Arial, sans-serif';
+            this.ctx.fillStyle = '#fff';
+            this.ctx.fillText('🖕', centerX, centerY + 80);
+
+            this.ctx.restore();
+        }
     }
 }
 

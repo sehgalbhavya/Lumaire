@@ -51,6 +51,9 @@ export class GestureEngine {
             // 2. Open vs Fist
             const gesture = this.detectHandPose(landmarks);
 
+            // 3. Easter Egg: Middle Finger Detection
+            const isMiddleFinger = this.detectMiddleFinger(landmarks);
+
             // Get control state for this hand
             const controlState = this.controlState[label];
             const eqState = this.eqControlState[label];
@@ -71,7 +74,8 @@ export class GestureEngine {
                 gesture,
                 pinches,
                 isControlling,
-                controlType
+                controlType,
+                isMiddleFinger
             });
 
             // Update pinch states
@@ -133,6 +137,45 @@ export class GestureEngine {
         }
 
         return curledCount >= 3 ? 'Closed' : 'Open';
+    }
+
+    /**
+     * Detect if user is showing middle finger
+     * Returns true if middle finger is extended and other fingers (except thumb) are curled
+     */
+    detectMiddleFinger(landmarks) {
+        const wrist = landmarks[0];
+
+        // Index finger (tips[8], pip[6])
+        const indexTip = landmarks[8];
+        const indexPip = landmarks[6];
+        const indexTipDist = Math.hypot(indexTip.x - wrist.x, indexTip.y - wrist.y);
+        const indexPipDist = Math.hypot(indexPip.x - wrist.x, indexPip.y - wrist.y);
+        const indexCurled = indexTipDist < indexPipDist;
+
+        // Middle finger (tips[12], pip[10])
+        const middleTip = landmarks[12];
+        const middlePip = landmarks[10];
+        const middleTipDist = Math.hypot(middleTip.x - wrist.x, middleTip.y - wrist.y);
+        const middlePipDist = Math.hypot(middlePip.x - wrist.x, middlePip.y - wrist.y);
+        const middleExtended = middleTipDist > middlePipDist;
+
+        // Ring finger (tips[16], pip[14])
+        const ringTip = landmarks[16];
+        const ringPip = landmarks[14];
+        const ringTipDist = Math.hypot(ringTip.x - wrist.x, ringTip.y - wrist.y);
+        const ringPipDist = Math.hypot(ringPip.x - wrist.x, ringPip.y - wrist.y);
+        const ringCurled = ringTipDist < ringPipDist;
+
+        // Pinky finger (tips[20], pip[18])
+        const pinkyTip = landmarks[20];
+        const pinkyPip = landmarks[18];
+        const pinkyTipDist = Math.hypot(pinkyTip.x - wrist.x, pinkyTip.y - wrist.y);
+        const pinkyPipDist = Math.hypot(pinkyPip.x - wrist.x, pinkyPip.y - wrist.y);
+        const pinkyCurled = pinkyTipDist < pinkyPipDist;
+
+        // Middle finger gesture: middle extended, others curled
+        return middleExtended && indexCurled && ringCurled && pinkyCurled;
     }
 
     /**
