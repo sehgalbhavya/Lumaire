@@ -24,11 +24,12 @@ export class GestureEngine {
 
         // Sensitivity settings
         this.volumeSensitivity = 0.3;  // For master volume (vertical movement)
-        this.crossfaderSensitivity = 0.25;  // For crossfader (horizontal movement)
+        // Simple: horizontal delta of this.crossfaderFullDelta (normalized 0..1) => full crossfade (0..1)
+        this.crossfaderFullDelta = 0.10;  // default: 0.10 normalized units (adjust if needed)
         this.eqSensitivity = 0.25;  // For bass/treble (vertical movement)
 
-        // Minimum movement threshold to distinguish tap from drag
-        this.movementThreshold = 0.03;
+        // Minimum movement threshold to distinguish tap from drag (smaller for quicker response)
+        this.movementThreshold = 0.01;
     }
 
     process(results) {
@@ -353,10 +354,11 @@ export class GestureEngine {
             if (absDeltaX > this.movementThreshold) {
                 controlState.hasMoved = true;
 
-                // Moving RIGHT = towards Track B (increase crossfader)
-                // Moving LEFT = towards Track A (decrease crossfader)
-                const crossfaderChange = -deltaX / this.crossfaderSensitivity;
+                // Simple mapping: deltaX / fullDelta -> fraction of full crossfade
+                // Moving RIGHT (deltaX>0) increases crossfader (towards Track B).
+                const crossfaderChange = -deltaX / this.crossfaderFullDelta;
                 let newPosition = controlState.startValue + crossfaderChange;
+
                 newPosition = Math.max(0, Math.min(1, newPosition));
 
                 audioEngine.setCrossfaderPosition(newPosition);
