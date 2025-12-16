@@ -30,6 +30,17 @@ export class GestureEngine {
 
         // Minimum movement threshold to distinguish tap from drag (smaller for quicker response)
         this.movementThreshold = 0.01;
+
+        // Clap detection params
+        this.clapDistThreshold = 0.09;      // relaxed distance (normalized frame units) considered "together"
+        this.clapApproachThreshold = 0.015; // required decrease in distance between frames to count as a fast approach
+        this.clapCooldownMs = 400;          // don't retrigger within this ms
+        this.lastHandCentroids = { Left: null, Right: null }; // remembers recent centroids even if a hand disappears
+        this.lastHandsDistance = null;      // last measured distance between hands (when available)
+        this.lastClapTime = 0;
+
+        // indices used to compute a palm-centroid (wrist + MCPs)
+        this._centroidIndices = [0, 5, 9, 13, 17];
     }
 
     process(results) {
@@ -37,6 +48,58 @@ export class GestureEngine {
 
         const handsData = [];
         const state = stateStore.getState();
+
+        // ---------- Clap detection () ----------
+        // Build centroids for detected hands (apply same mirrored label mapping used later)
+        const now = Date.now();
+        const detectedCentroids = {};
+        for (let i = 0; i < results.multiHandLandmarks.length; i++) {
+            const rawLabel = results.multiHandedness[i].label;
+            const label = rawLabel === 'Left' ? 'Right' : 'Left'; // mirror fix
+            const lms = results.multiHandLandmarks[i];
+
+            // compute centroid of a few palm-representative landmarks
+            let sx = 0, sy = 0;
+            for (const idx of this._centroidIndices) {
+                sx += lms[idx].x;
+                sy += lms[idx].y;
+            }
+            const cx = sx / this._centroidIndices.length;
+            const cy = sy / this._centroidIndices.length;
+
+            detectedCentroids[label] = { x: cx, y: cy, ts: now };
+            // update memory for this hand
+            this.lastHandCentroids[label] = { x: cx, y: cy, ts: now };
+        }
+
+        // Decide source positions for distance calc:
+        // prefer both currently detected, else use a recent memory (within 400ms)
+        const recentThreshold = 400;
+        const left = detectedCentroids.Left || (this.lastHandCentroids.Left && (now - this.lastHandCentroids.Left.ts < recentThreshold) ? this.lastHandCentroids.Left : null);
+        const right = detectedCentroids.Right || (this.lastHandCentroids.Right && (now - this.lastHandCentroids.Right.ts < recentThreshold) ? this.lastHandCentroids.Right : null);
+
+        let clapDetected = false;
+        if (left && right) {
+            const dx = left.x - right.x;
+            const dy = left.y - right.y;
+            const dist = Math.hypot(dx, dy);
+
+            const approach = (this.lastHandsDistance !== null) ? (this.lastHandsDistance - dist) : 0;
+            console.debug(`clap-debug dist=${dist.toFixed(3)} approach=${approach.toFixed(4)} lastClap=${now - this.lastClapTime}ms`);
+
+            if (approach > this.clapApproachThreshold && dist < this.clapDistThreshold && (now - this.lastClapTime) > this.clapCooldownMs) {
+                clapDetected = true;
+                this.lastClapTime = now;
+                console.log('👏 Clap detected (gestureEngine)');
+            }
+            // store last distance for next frame
+            this.lastHandsDistance = dist;
+        } else {
+            // not enough info to compute a pair distance; decay stored distance so a slow drift doesn't trigger later
+            this.lastHandsDistance = null;
+        }
+
+        // ---------------------------------------------------------------------
 
         for (let i = 0; i < results.multiHandLandmarks.length; i++) {
             const landmarks = results.multiHandLandmarks[i];
@@ -76,7 +139,8 @@ export class GestureEngine {
                 pinches,
                 isControlling,
                 controlType,
-                isMiddleFinger
+                isMiddleFinger,
+                clap: clapDetected 
             });
 
             // Update pinch states
