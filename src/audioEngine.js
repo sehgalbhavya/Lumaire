@@ -87,6 +87,29 @@ export class AudioEngine {
     }
 
     /**
+     * Get a normalized (0–1) loudness value from the FFT analyser.
+     * Maps dB range [-100, 0] -> [0, 1] so that silence -> 0, loud -> close to 1.
+     */
+    getAverageFrequency() {
+        if (!this.analyser) return 0;
+        const values = this.analyser.getValue();
+        if (!values || values.length === 0) return 0;
+
+        let sum = 0;
+        let count = 0;
+        for (let i = 0; i < values.length; i++) {
+            const db = values[i];
+            if (!Number.isFinite(db)) continue;
+            const clampedDb = Math.max(-100, Math.min(0, db)); // [-100, 0]
+            const norm = (clampedDb + 100) / 100;              // -> [0, 1]
+            sum += norm;
+            count++;
+        }
+        if (count === 0) return 0;
+        return sum / count;
+    }
+
+    /**
      * Calculate track volumes based on crossfader and master volume
      * Crossfader: 0 = Track A only, 0.5 = Both tracks, 1 = Track B only
      */
