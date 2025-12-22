@@ -598,6 +598,17 @@ export class VisualEngine {
             this.lastClapTs = Date.now();
         }
 
+        // Also react to programmatic clap triggers stored in stateStore (keyboard/mouse)
+        try {
+            const s = stateStore.getState();
+            const stateClapTs = s && s.lastClapTs ? s.lastClapTs : 0;
+            if (stateClapTs && stateClapTs > this.lastClapTs) {
+                this.lastClapTs = stateClapTs;
+            }
+        } catch (e) {
+            // ignore if stateStore isn't available
+        }
+
         // Show notification while within clapDisplayMs since last clap
         if (Date.now() - this.lastClapTs > this.clapDisplayMs) return;
 

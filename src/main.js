@@ -33,6 +33,151 @@ hintsHeader?.addEventListener('click', () => {
     hintsPanel?.classList.toggle('collapsed');
 });
 
+// Populate dynamic hints (keyboard + mouse mappings)
+function populateHintsPanel() {
+        if (!hintsPanel) return;
+        const content = document.getElementById('hints-content') || document.createElement('div');
+        content.id = 'hints-content';
+        content.className = 'hints-content';
+        content.innerHTML = `
+            <div class="hint-section">
+                <span class="hint-icon">🖐️</span>
+                <div class="hint-content">
+                    <strong>Right Hand</strong>
+                    <p>Pinch = Play/Pause</p>
+                    <p>Pinch + ↕ = Volume (or use keyboard ↕)</p>
+                </div>
+            </div>
+            <div class="hint-section">
+                <span class="hint-icon">🖐️</span>
+                <div class="hint-content">
+                    <strong>Left Hand</strong>
+                    <p>Pinch + ←/→ = Crossfader (or use keyboard ←/→)</p>
+                </div>
+            </div>
+            <div class="hint-section">
+                <span class="hint-icon">✊</span>
+                <div class="hint-content">
+                    <strong>Fist Gestures</strong>
+                    <p>Right = Bass | Left = Treble.</p>
+                    <p>Hold B and use ↑/↓ to change Bass; hold T and use ↑/↓ to change Treble.</p>
+                </div>
+            </div>
+            <div class="hint-section">
+                <span class="hint-icon">👏</span>
+                <div class="hint-content">
+                    <strong id="hint-clap-title">Clap</strong>
+                    <p id="hint-clap">Clap = Trigger action (press C to simulate)</p>
+                </div>
+            </div>
+            <div class="hint-section">
+                <span class="hint-icon">⌨️</span>
+                <div class="hint-content">
+                    <strong>Keyboard</strong>
+                    <p>Space / P = Play/Pause</p>
+                    <p>↑/↓ = Volume (hold B or T + ↑/↓ to edit Bass/Treble)</p>
+                    <p>←/→ = Crossfader | C = Clap</p>
+                </div>
+            </div>
+        `;
+        // replace or append
+        const existing = document.getElementById('hints-content');
+        if (existing) existing.replaceWith(content);
+        else hintsPanel.appendChild(content);
+}
+
+populateHintsPanel();
+
+// --- Keyboard & Cursor control mapping (simulate gestures) -----------------
+// Small helper actions that reuse audioEngine functions so keyboard/mouse
+// behave the same as gestures.
+const CONTROLS = {
+    async togglePlay() { await audioEngine.init(); await audioEngine.toggleAllTracks(); },
+    incMaster(delta = 0.05) { const s = stateStore.getState(); audioEngine.setMasterVolume(s.masterVolume + delta); },
+    decMaster(delta = 0.05) { const s = stateStore.getState(); audioEngine.setMasterVolume(s.masterVolume - delta); },
+    moveCross(delta = 0.25) { const s = stateStore.getState(); audioEngine.setCrossfaderPosition(s.crossfaderPosition + delta); },
+    incBass(delta = 0.25) { const s = stateStore.getState(); audioEngine.setBass(s.bass + delta); },
+    decBass(delta = 0.25) { const s = stateStore.getState(); audioEngine.setBass(s.bass - delta); },
+    incTreble(delta = 0.25) { const s = stateStore.getState(); audioEngine.setTreble(s.treble + delta); },
+    decTreble(delta = 0.25) { const s = stateStore.getState(); audioEngine.setTreble(s.treble - delta); },
+    // Clap trigger: set a short state flag so UI can show it
+    triggerClap() { stateStore.setState({ lastClapTs: Date.now() }); console.log('Clap triggered via keyboard/mouse'); }
+};
+
+// Keyboard shortcuts
+let bassHold = false;
+let trebleHold = false;
+
+window.addEventListener('keydown', (ev) => {
+    // avoid typing into inputs
+    const tag = document.activeElement?.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+    const key = ev.key.toLowerCase();
+
+    // Hold modifiers: T and B put arrows into treble/bass mode while held
+    if (key === 't') { trebleHold = true; return; }
+    if (key === 'b') { bassHold = true; return; }
+
+    switch (key) {
+        case ' ': // space -> toggle play
+        case 'p':
+            ev.preventDefault();
+            CONTROLS.togglePlay();
+            break;
+        case 'arrowup':
+            if (trebleHold) CONTROLS.incTreble();
+            else if (bassHold) CONTROLS.incBass();
+            else CONTROLS.incMaster();
+            break;
+        case 'arrowdown':
+            if (trebleHold) CONTROLS.decTreble();
+            else if (bassHold) CONTROLS.decBass();
+            else CONTROLS.decMaster();
+            break;
+        case 'arrowleft':
+            CONTROLS.moveCross(-0.25);
+            break;
+        case 'arrowright':
+            CONTROLS.moveCross(0.25);
+            break;
+        case 'c': // clap trigger
+            CONTROLS.triggerClap();
+            break;
+    }
+});
+
+// Release modifiers when keyup occurs
+window.addEventListener('keyup', (ev) => {
+    const key = ev.key.toLowerCase();
+    if (key === 't') trebleHold = false;
+    if (key === 'b') bassHold = false;
+});
+
+// Click interactions on the status displays to simulate quick gesture input
+masterVolumeDisplay?.addEventListener('click', (e) => {
+    if (e.shiftKey) CONTROLS.decMaster(); else CONTROLS.incMaster();
+});
+
+crossfaderDisplay?.addEventListener('click', (e) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const pct = x / rect.width;
+    audioEngine.setCrossfaderPosition(pct);
+});
+
+bassDisplay?.addEventListener('click', (e) => { if (e.shiftKey) CONTROLS.decBass(); else CONTROLS.incBass(); });
+trebleDisplay?.addEventListener('click', (e) => { if (e.shiftKey) CONTROLS.decTreble(); else CONTROLS.incTreble(); });
+
+// Update hints panel clap text briefly when triggered via keyboard/mouse or gestures
+function showClapHintTemporary() {
+    const el = document.getElementById('hint-clap');
+    if (!el) return;
+    const prev = el.textContent;
+    el.textContent = 'Clap = Triggered!';
+    setTimeout(() => { el.textContent = prev; }, 1500);
+}
+
+
 // =============================================
 // TRACK UPLOAD HANDLERS
 // =============================================
@@ -111,6 +256,11 @@ function onResults(results) {
 
     // Draw everything
     visualEngine.draw(results, handsData);
+
+    // If a clap was detected by gestureEngine, briefly update hints panel
+    if (handsData && handsData.some(h => h.clap)) {
+        showClapHintTemporary();
+    }
 }
 
 const hands = new Hands({
