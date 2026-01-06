@@ -12,7 +12,8 @@ const canvasElement = document.getElementById('output_canvas')
 // Track upload elements
 const trackAInput = document.getElementById('track-a-input')
 const trackBInput = document.getElementById('track-b-input')
-const playAllBtn = document.getElementById('play-all-btn')
+const playTrackABtn = document.getElementById('play-track-a-btn')
+const playTrackBBtn = document.getElementById('play-track-b-btn')
 const masterVolumeDisplay = document.getElementById('master-volume-display')
 const crossfaderDisplay = document.getElementById('crossfader-display')
 const bassDisplay = document.getElementById('bass-display')
@@ -44,7 +45,7 @@ function populateHintsPanel() {
                 <span class="hint-icon">🖐️</span>
                 <div class="hint-content">
                     <strong>Right Hand</strong>
-                    <p>Pinch = Play/Pause</p>
+                    <p>Pinch = Toggle Track B Play/Pause (or keyboard B + Space)</p>
                     <p>Pinch + ↕ = Volume (or use keyboard ↕)</p>
                 </div>
             </div>
@@ -52,6 +53,7 @@ function populateHintsPanel() {
                 <span class="hint-icon">🖐️</span>
                 <div class="hint-content">
                     <strong>Left Hand</strong>
+                    <p>Pinch = Toggle Track A Play/Pause (or keyboard A + Space)</p>
                     <p>Pinch + ←/→ = Crossfader (or use keyboard ←/→)</p>
                 </div>
             </div>
@@ -67,18 +69,10 @@ function populateHintsPanel() {
                 <span class="hint-icon">👏</span>
                 <div class="hint-content">
                     <strong id="hint-clap-title">Clap</strong>
-                    <p id="hint-clap">Clap = Trigger action (press C to simulate)</p>
+                    <p id="hint-clap">Clap = Trigger action (or in keyboard press C)</p>
                 </div>
             </div>
-            <div class="hint-section">
-                <span class="hint-icon">⌨️</span>
-                <div class="hint-content">
-                    <strong>Keyboard</strong>
-                    <p>Space / P = Play/Pause</p>
-                    <p>↑/↓ = Volume (hold B or T + ↑/↓ to edit Bass/Treble)</p>
-                    <p>←/→ = Crossfader | C = Clap</p>
-                </div>
-            </div>
+        
         `;
         // replace or append
         const existing = document.getElementById('hints-content');
@@ -93,6 +87,8 @@ populateHintsPanel();
 // behave the same as gestures.
 const CONTROLS = {
     async togglePlay() { await audioEngine.init(); await audioEngine.toggleAllTracks(); },
+    async toggleTrackA() { await audioEngine.init(); const s = stateStore.getState(); if (s.trackAPlaying) await audioEngine.pauseTrack('A'); else await audioEngine.resumeTrack('A'); },
+    async toggleTrackB() { await audioEngine.init(); const s = stateStore.getState(); if (s.trackBPlaying) await audioEngine.pauseTrack('B'); else await audioEngine.resumeTrack('B'); },
     incMaster(delta = 0.05) { const s = stateStore.getState(); audioEngine.setMasterVolume(s.masterVolume + delta); },
     decMaster(delta = 0.05) { const s = stateStore.getState(); audioEngine.setMasterVolume(s.masterVolume - delta); },
     moveCross(delta = 0.25) { const s = stateStore.getState(); audioEngine.setCrossfaderPosition(s.crossfaderPosition + delta); },
@@ -107,6 +103,8 @@ const CONTROLS = {
 // Keyboard shortcuts
 let bassHold = false;
 let trebleHold = false;
+let deckAHold = false;
+let deckBHold = false;
 
 window.addEventListener('keydown', (ev) => {
     // avoid typing into inputs
@@ -116,10 +114,18 @@ window.addEventListener('keydown', (ev) => {
 
     // Hold modifiers: T and B put arrows into treble/bass mode while held
     if (key === 't') { trebleHold = true; return; }
-    if (key === 'b') { bassHold = true; return; }
+    if (key === 'b') { bassHold = true; deckBHold = true; return; }
+    if (key === 'a') { deckAHold = true; return; }
 
     switch (key) {
-        case ' ': // space -> toggle play
+        case ' ': // space -> toggle per-deck when A or B held
+            ev.preventDefault();
+            if (deckAHold) {
+                CONTROLS.toggleTrackA();
+            } else if (deckBHold) {
+                CONTROLS.toggleTrackB();
+            }
+            break;
         case 'p':
             ev.preventDefault();
             CONTROLS.togglePlay();
@@ -150,7 +156,8 @@ window.addEventListener('keydown', (ev) => {
 window.addEventListener('keyup', (ev) => {
     const key = ev.key.toLowerCase();
     if (key === 't') trebleHold = false;
-    if (key === 'b') bassHold = false;
+    if (key === 'b') { bassHold = false; deckBHold = false; }
+    if (key === 'a') deckAHold = false;
 });
 
 // Click interactions on the status displays to simulate quick gesture input
@@ -200,11 +207,18 @@ trackBInput?.addEventListener('change', async (e) => {
 });
 
 // =============================================
-// PLAY ALL BUTTON HANDLER
+// PER-TRACK PLAY BUTTON HANDLERS
 // =============================================
-playAllBtn?.addEventListener('click', async () => {
-    await audioEngine.init(); // Ensure audio is initialized
-    await audioEngine.toggleAllTracks();
+playTrackABtn?.addEventListener('click', async () => {
+    await audioEngine.init();
+    const s = stateStore.getState();
+    if (s.trackAPlaying) await audioEngine.pauseTrack('A'); else await audioEngine.resumeTrack('A');
+});
+
+playTrackBBtn?.addEventListener('click', async () => {
+    await audioEngine.init();
+    const s = stateStore.getState();
+    if (s.trackBPlaying) await audioEngine.pauseTrack('B'); else await audioEngine.resumeTrack('B');
 });
 
 // =============================================

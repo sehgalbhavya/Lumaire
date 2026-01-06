@@ -128,9 +128,8 @@ export class VisualEngine {
         this.drawEQIndicator(ctx, rightGroupX - 50, bottomY, 'Bass', state.bass, '#F5C77E');
         this.drawEQIndicator(ctx, rightGroupX + 50, bottomY, 'Treble', state.treble, '#A8C5D9');
 
-        // Draw overall play status (top center)
-        this.drawPlayStatus(ctx, width / 2, 50, state);
-
+        // Draw per-track play buttons on the right side (near other controls)
+        this.drawTrackButtons(ctx, width - 160, 80, state);
         ctx.restore();
     }
 
@@ -138,70 +137,60 @@ export class VisualEngine {
      * Draw the crossfader (horizontal slider at bottom)
      */
     drawCrossfader(ctx, x, y, state) {
-        const barWidth = 300;
-        const barHeight = 30;
+        const barWidth = 360;
+        const barHeight = 34;
         const barX = x - barWidth / 2;
         const barY = y - barHeight / 2;
 
-        // Background
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        // Outline and background
+        ctx.fillStyle = 'rgba(0,0,0,0.4)';
         ctx.fillRect(barX, barY, barWidth, barHeight);
-
-        // Border
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+        ctx.strokeStyle = 'rgba(255,255,255,0.12)';
         ctx.lineWidth = 1;
         ctx.strokeRect(barX, barY, barWidth, barHeight);
 
-        // Track A side (left gradient)
+        // Left (A) and Right (B) gradients
         const leftGradient = ctx.createLinearGradient(barX, 0, barX + barWidth / 2, 0);
-        leftGradient.addColorStop(0, 'rgba(255, 255, 255, 0.4)');
-        leftGradient.addColorStop(1, 'rgba(255, 255, 255, 0.1)');
+        leftGradient.addColorStop(0, 'rgba(255,255,255,0.35)');
+        leftGradient.addColorStop(1, 'rgba(255,255,255,0.08)');
         ctx.fillStyle = leftGradient;
         ctx.fillRect(barX + 2, barY + 2, barWidth / 2 - 4, barHeight - 4);
 
-        // Track B side (right gradient)
         const rightGradient = ctx.createLinearGradient(barX + barWidth / 2, 0, barX + barWidth, 0);
-        rightGradient.addColorStop(0, 'rgba(200, 180, 140, 0.1)');
-        rightGradient.addColorStop(1, 'rgba(200, 180, 140, 0.4)');
+        rightGradient.addColorStop(0, 'rgba(200,180,140,0.08)');
+        rightGradient.addColorStop(1, 'rgba(200,180,140,0.35)');
         ctx.fillStyle = rightGradient;
         ctx.fillRect(barX + barWidth / 2 + 2, barY + 2, barWidth / 2 - 4, barHeight - 4);
 
-        // Crossfader position indicator (thumb)
+        // Thumb
         const thumbX = barX + state.crossfaderPosition * barWidth;
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
-        ctx.fillRect(thumbX - 4, barY - 4, 8, barHeight + 8);
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(thumbX - 4, barY - 4, 8, barHeight + 8);
+        ctx.fillStyle = 'rgba(255,255,255,0.95)';
+        ctx.fillRect(thumbX - 5, barY - 6, 10, barHeight + 12);
+        ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+        ctx.strokeRect(thumbX - 5, barY - 6, 10, barHeight + 12);
 
-        // Labels
+        // Labels A / B
         ctx.font = '500 11px Inter, sans-serif';
         ctx.textAlign = 'left';
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-        ctx.fillText('A', barX + 10, barY + barHeight / 2 + 4);
-
+        ctx.fillStyle = 'rgba(255,255,255,0.8)';
+        ctx.fillText('A', barX + 8, barY + barHeight / 2 + 5);
         ctx.textAlign = 'right';
-        ctx.fillStyle = 'rgba(200, 180, 140, 0.7)';
-        ctx.fillText('B', barX + barWidth - 10, barY + barHeight / 2 + 4);
+        ctx.fillStyle = 'rgba(200,180,140,0.8)';
+        ctx.fillText('B', barX + barWidth - 8, barY + barHeight / 2 + 5);
 
-        // Position percentage
+        // Percentage and description
         ctx.textAlign = 'center';
         ctx.fillStyle = 'white';
-        ctx.font = 'bold 14px Arial';
-        ctx.fillText(`${Math.round(state.crossfaderPosition * 100)}%`, x, barY - 15);
+        ctx.font = 'bold 13px Inter, sans-serif';
+        ctx.fillText(`${Math.round(state.crossfaderPosition * 100)}%`, x, barY - 12);
 
-        // Description
         ctx.font = '11px Arial';
         ctx.fillStyle = '#aaa';
         let desc;
-        if (state.crossfaderPosition < 0.25) {
-            desc = 'Track A';
-        } else if (state.crossfaderPosition > 0.75) {
-            desc = 'Track B';
-        } else {
-            desc = 'Both Tracks';
-        }
-        ctx.fillText(desc, x, barY + barHeight + 18);
+        if (state.crossfaderPosition < 0.25) desc = 'Track A';
+        else if (state.crossfaderPosition > 0.75) desc = 'Track B';
+        else desc = 'Both Tracks';
+        ctx.fillText(desc, x, barY + barHeight + 16);
     }
 
     /**
@@ -363,16 +352,77 @@ export class VisualEngine {
      * Draw overall play status
      */
     drawPlayStatus(ctx, x, y, state) {
-        const isPlaying = state.trackAPlaying || state.trackBPlaying;
+        const aPlaying = state.trackAPlaying;
+        const bPlaying = state.trackBPlaying;
 
-        ctx.font = '600 20px Inter, sans-serif';
+        ctx.font = '600 18px Inter, sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillStyle = isPlaying ? 'rgba(255, 255, 255, 0.9)' : 'rgba(100, 100, 100, 0.6)';
-        ctx.fillText(isPlaying ? '▶ PLAYING' : '⏸ PAUSED', x, y);
+
+        // Track A status (left)
+        ctx.fillStyle = aPlaying ? 'rgba(255,255,255,0.95)' : 'rgba(140,140,140,0.6)';
+        ctx.fillText(aPlaying ? '▶ Track A' : '⏸ Track A', x - 90, y);
+
+        // Track B status (right)
+        ctx.fillStyle = bPlaying ? 'rgba(255,255,255,0.95)' : 'rgba(140,140,140,0.6)';
+        ctx.fillText(bPlaying ? '▶ Track B' : '⏸ Track B', x + 90, y);
 
         ctx.font = '400 11px Inter, sans-serif';
         ctx.fillStyle = 'rgba(150, 150, 150, 0.5)';
-        ctx.fillText('Right Hand: Quick Pinch to Play/Pause', x, y + 22);
+        ctx.fillText('Keyboard: A + Space = Toggle Track A', x - 90, y + 20);
+        ctx.fillText('Keyboard: B + Space = Toggle Track B', x + 90, y + 20);
+    }
+
+    /**
+     * Draw two rectangular play/pause buttons for Track A and Track B
+     * placed on the right side near other controls.
+     */
+    drawTrackButtons(ctx, x, y, state) {
+        const w = 120;
+        const h = 44;
+        const gap = 12;
+
+        // Track A button (above)
+        const ax = x;
+        const ay = y;
+        const aPlaying = state.trackAPlaying;
+        ctx.fillStyle = aPlaying ? 'rgba(40,160,40,0.95)' : 'rgba(60,60,60,0.85)';
+        this.roundRect(ctx, ax - w/2, ay - h/2, w, h, 8, true, false);
+        ctx.fillStyle = 'white';
+        ctx.font = '600 14px Inter, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(aPlaying ? '▶ Track A' : '⏸ Track A', ax, ay + 4);
+        ctx.font = '400 11px Inter, sans-serif';
+        ctx.fillText('Keyboard: A + Space', ax, ay + 20 + 6);
+
+        // Track B button (below)
+        const bx = x;
+        const by = y + h + gap;
+        const bPlaying = state.trackBPlaying;
+        ctx.fillStyle = bPlaying ? 'rgba(200,140,40,0.95)' : 'rgba(60,60,60,0.85)';
+        this.roundRect(ctx, bx - w/2, by - h/2, w, h, 8, true, false);
+        ctx.fillStyle = 'white';
+        ctx.font = '600 14px Inter, sans-serif';
+        ctx.fillText(bPlaying ? '▶ Track B' : '⏸ Track B', bx, by + 4);
+        ctx.font = '400 11px Inter, sans-serif';
+        ctx.fillText('Keyboard: B + Space', bx, by + 20 + 6);
+    }
+
+    // Utility: draw rounded rect
+    roundRect(ctx, x, y, width, height, radius, fill, stroke) {
+        if (typeof radius === 'number') radius = {tl: radius, tr: radius, br: radius, bl: radius};
+        ctx.beginPath();
+        ctx.moveTo(x + radius.tl, y);
+        ctx.lineTo(x + width - radius.tr, y);
+        ctx.quadraticCurveTo(x + width, y, x + width, y + radius.tr);
+        ctx.lineTo(x + width, y + height - radius.br);
+        ctx.quadraticCurveTo(x + width, y + height, x + width - radius.br, y + height);
+        ctx.lineTo(x + radius.bl, y + height);
+        ctx.quadraticCurveTo(x, y + height, x, y + height - radius.bl);
+        ctx.lineTo(x, y + radius.tl);
+        ctx.quadraticCurveTo(x, y, x + radius.tl, y);
+        ctx.closePath();
+        if (fill) { ctx.fill(); }
+        if (stroke) { ctx.stroke(); }
     }
 
     drawHandInfo(handsData, width, height, dx, dy, dw, dh) {

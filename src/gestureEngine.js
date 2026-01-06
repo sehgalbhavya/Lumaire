@@ -249,10 +249,10 @@ export class GestureEngine {
     }
 
     /**
-     * RIGHT HAND CONTROLS:
-     * - Quick pinch (tap) = Toggle Play/Pause for ALL tracks
-     * - Pinch + UP/DOWN = Master Volume control
-     * - Fist (Closed hand) + UP/DOWN = Bass control
+    * RIGHT HAND CONTROLS:
+    * - Quick pinch (tap) = Toggle Play/Pause for Track B (right deck)
+    * - Pinch + UP/DOWN = Master Volume control
+    * - Fist (Closed hand) + UP/DOWN = Bass control
      */
     handleRightHandGesture(landmarks, pinches, gesture) {
         const state = stateStore.getState();
@@ -336,9 +336,14 @@ export class GestureEngine {
             controlState.isPinching = false;
 
             if (!controlState.hasMoved) {
-                // TAP = Toggle Play/Pause for ALL tracks
-                console.log(`Right Hand: Tap Detected - Toggling ALL tracks Play/Pause`);
-                audioEngine.toggleAllTracks();
+                // TAP = Toggle Play/Pause for Track B (right hand controls Track B)
+                const s = stateStore.getState();
+                console.log(`Right Hand: Tap Detected - Toggling Track B Play/Pause`);
+                if (s.trackBPlaying) {
+                    audioEngine.pauseTrack('B');
+                } else {
+                    audioEngine.resumeTrack('B');
+                }
             } else {
                 // Movement occurred, it was master volume control
                 const finalVolume = stateStore.getState().masterVolume;
@@ -350,10 +355,11 @@ export class GestureEngine {
     }
 
     /**
-     * LEFT HAND CONTROLS:
-     * - Pinch + MOVE (horizontal) = Crossfader control
-     * - 0% = Track A only, 50% = Both, 100% = Track B only
-     * - Fist + UP/DOWN = Treble control
+    * LEFT HAND CONTROLS:
+    * - Quick pinch (tap) = Toggle Play/Pause for Track A (left deck)
+    * - Pinch + MOVE (horizontal) = Crossfader control
+    * - 0% = Track A only, 50% = Both, 100% = Track B only
+    * - Fist + UP/DOWN = Treble control
      */
     handleLeftHandGesture(landmarks, pinches, gesture) {
         const state = stateStore.getState();
@@ -439,7 +445,16 @@ export class GestureEngine {
         else if (!isPinching && controlState.isPinching) {
             controlState.isPinching = false;
 
-            if (controlState.hasMoved) {
+            if (!controlState.hasMoved) {
+                // TAP = Toggle Play/Pause for Track A (left hand controls Track A)
+                const s = stateStore.getState();
+                console.log(`Left Hand: Tap Detected - Toggling Track A Play/Pause`);
+                if (s.trackAPlaying) {
+                    audioEngine.pauseTrack('A');
+                } else {
+                    audioEngine.resumeTrack('A');
+                }
+            } else {
                 const finalPosition = stateStore.getState().crossfaderPosition;
                 let description;
                 if (finalPosition < 0.25) {
