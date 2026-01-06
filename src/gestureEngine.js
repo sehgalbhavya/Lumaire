@@ -91,6 +91,11 @@ export class GestureEngine {
                 clapDetected = true;
                 this.lastClapTime = now;
                 console.log('👏 Clap detected (gestureEngine)');
+                try {
+                    audioEngine.alignTracksOnClap();
+                } catch (e) {
+                    console.warn('Error calling alignTracksOnClap', e);
+                }
             }
             // store last distance for next frame
             this.lastHandsDistance = dist;
