@@ -5,6 +5,7 @@ import { gestureEngine } from './gestureEngine'
 import { visualEngine } from './visualEngine'
 import { audioEngine } from './audioEngine'
 import { stateStore } from './stateStore'
+import { midiEngine } from './midiEngine';
 
 const videoElement = document.getElementById('input_video')
 const canvasElement = document.getElementById('output_canvas')
@@ -20,6 +21,7 @@ const bassDisplay = document.getElementById('bass-display')
 const trebleDisplay = document.getElementById('treble-display')
 const hintsPanel = document.getElementById('hints-panel')
 const hintsHeader = document.getElementById('hints-header')
+const playAllBtn = document.getElementById('play-all-btn')
 
 // Initialize Visual Engine
 visualEngine.init(canvasElement);
@@ -27,6 +29,7 @@ visualEngine.init(canvasElement);
 // Initialize Audio Engine on user interaction
 document.body.addEventListener('click', async () => {
     await audioEngine.init();
+    await midiEngine.init();
 }, { once: true });
 
 // Toggle hints panel collapse
@@ -257,11 +260,13 @@ stateStore.subscribe((state) => {
         trebleDisplay.textContent = `Treble: ${trebleDb >= 0 ? '+' : ''}${trebleDb}dB`;
     }
 
-    // Update play button text
-    if (playAllBtn) {
-        const anyPlaying = state.trackAPlaying || state.trackBPlaying;
-        playAllBtn.textContent = anyPlaying ? '⏸️ Pause All' : '▶️ Play All';
-    }
+    
+
+    // // Update play button text
+    // if (playAllBtn) {
+    //     const anyPlaying = state.trackAPlaying || state.trackBPlaying;
+    //     playAllBtn.textContent = anyPlaying ? '⏸️ Pause All' : '▶️ Play All';
+    // }
 });
 
 function onResults(results) {
