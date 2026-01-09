@@ -5,9 +5,13 @@ import { gestureEngine } from './gestureEngine'
 import { visualEngine } from './visualEngine'
 import { audioEngine } from './audioEngine'
 import { stateStore } from './stateStore'
+import { initThreeBackground } from './threeScene'
 
 const videoElement = document.getElementById('input_video')
 const canvasElement = document.getElementById('output_canvas')
+
+// Initialize three.js Perlin-noise sphere as a full-screen background
+initThreeBackground()
 
 // Track upload elements
 const trackAInput = document.getElementById('track-a-input')
