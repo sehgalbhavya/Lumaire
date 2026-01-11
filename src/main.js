@@ -256,12 +256,6 @@ stateStore.subscribe((state) => {
         const trebleDb = Math.round(state.treble * 12);
         trebleDisplay.textContent = `Treble: ${trebleDb >= 0 ? '+' : ''}${trebleDb}dB`;
     }
-
-    // Update play button text
-    if (playAllBtn) {
-        const anyPlaying = state.trackAPlaying || state.trackBPlaying;
-        playAllBtn.textContent = anyPlaying ? '⏸️ Pause All' : '▶️ Play All';
-    }
 });
 
 function onResults(results) {
