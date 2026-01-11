@@ -256,6 +256,14 @@ stateStore.subscribe((state) => {
         const trebleDb = Math.round(state.treble * 12);
         trebleDisplay.textContent = `Treble: ${trebleDb >= 0 ? '+' : ''}${trebleDb}dB`;
     }
+
+    // Update per-track button text to reflect current play state
+    if (playTrackABtn) {
+        playTrackABtn.textContent = state.trackAPlaying ? '⏸ Pause A' : '▶️ Play A';
+    }
+    if (playTrackBBtn) {
+        playTrackBBtn.textContent = state.trackBPlaying ? '⏸ Pause B' : '▶️ Play B';
+    }
 });
 
 function onResults(results) {
