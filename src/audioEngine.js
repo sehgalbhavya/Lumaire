@@ -35,7 +35,26 @@ export class AudioEngine {
         });
     }
 
-    /**
+    // Robustly read playbackRate from a Tone.Player-like object
+    getPlaybackRate(player) {
+        try {
+            if (!player) return 1;
+            const pr = player.playbackRate;
+            if (pr == null) return 1;
+            if (typeof pr === 'object' && pr.value !== undefined) return pr.value;
+            if (typeof pr === 'number') return pr;
+            // fallback for Tone.Player#get API
+            if (player.get && typeof player.get === 'function') {
+                const v = player.get('playbackRate');
+                if (typeof v === 'number') return v;
+            }
+        } catch (e) {
+            // ignore and fallback
+        }
+        return 1;
+    }
+
+            /**
      * Estimate BPM from an AudioBuffer using a simple autocorrelation of the onset envelope.
      * Returns a numeric BPM estimate (floating).
      */
@@ -92,34 +111,174 @@ export class AudioEngine {
         }
     }
 
+            /**
+     * Smoothly set playbackRate on a player over duration (seconds).
+     * Returns a Promise that resolves when ramp completes.
+     */
+    smoothSetPlaybackRate(player, targetRate, duration = 1.5) {
+        return new Promise((resolve) => {
+            if (!player) return resolve();
+            const startRate = this.getPlaybackRate(player) || 1;
+            if (Math.abs(startRate - targetRate) < 0.0005) return resolve();
+
+            const steps = Math.max(6, Math.floor(duration * 30));
+            let step = 0;
+            const delta = targetRate - startRate;
+            const interval = (duration * 1000) / steps;
+
+            const applyRate = (r) => {
+                try {
+                    if (player.playbackRate && typeof player.playbackRate === 'object' && player.playbackRate.value !== undefined) {
+                        player.playbackRate.value = r;
+                    } else if (typeof player.playbackRate === 'number') {
+                        player.playbackRate = r;
+                    } else if (player.set) {
+                        player.set({ playbackRate: r });
+                    }
+                } catch (e) {
+                    // ignore errors while ramping
+                }
+            };
+
+            const timer = setInterval(() => {
+                step++;
+                const r = startRate + (delta * (step / steps));
+                applyRate(r);
+                if (step >= steps) {
+                    clearInterval(timer);
+                    // final set to ensure exact value
+                    applyRate(targetRate);
+                    resolve();
+                }
+            }, interval);
+        });
+    }
+
+            /**
+     * Smoothly set playbackRate on a player over duration (seconds).
+     * Returns a Promise that resolves when ramp completes.
+     */
+    smoothSetPlaybackRate(player, targetRate, duration = 1.5) {
+        return new Promise((resolve) => {
+            if (!player) return resolve();
+            const startRate = this.getPlaybackRate(player) || 1;
+            if (Math.abs(startRate - targetRate) < 0.0005) return resolve();
+
+            const steps = Math.max(6, Math.floor(duration * 30));
+            let step = 0;
+            const delta = targetRate - startRate;
+            const interval = (duration * 1000) / steps;
+
+            const applyRate = (r) => {
+                try {
+                    if (player.playbackRate && typeof player.playbackRate === 'object' && player.playbackRate.value !== undefined) {
+                        player.playbackRate.value = r;
+                    } else if (typeof player.playbackRate === 'number') {
+                        player.playbackRate = r;
+                    } else if (player.set) {
+                        player.set({ playbackRate: r });
+                    }
+                } catch (e) {
+                    // ignore errors while ramping
+                }
+            };
+
+            const timer = setInterval(() => {
+                step++;
+                const r = startRate + (delta * (step / steps));
+                applyRate(r);
+                if (step >= steps) {
+                    clearInterval(timer);
+                    // final set to ensure exact value
+                    applyRate(targetRate);
+                    resolve();
+                }
+            }, interval);
+        });
+    }
+
+            /**
+     * Smoothly set playbackRate on a player over duration (seconds).
+     * Returns a Promise that resolves when ramp completes.
+     */
+    smoothSetPlaybackRate(player, targetRate, duration = 1.5) {
+        return new Promise((resolve) => {
+            if (!player) return resolve();
+            const startRate = this.getPlaybackRate(player) || 1;
+            if (Math.abs(startRate - targetRate) < 0.0005) return resolve();
+
+            const steps = Math.max(6, Math.floor(duration * 30));
+            let step = 0;
+            const delta = targetRate - startRate;
+            const interval = (duration * 1000) / steps;
+
+            const applyRate = (r) => {
+                try {
+                    if (player.playbackRate && typeof player.playbackRate === 'object' && player.playbackRate.value !== undefined) {
+                        player.playbackRate.value = r;
+                    } else if (typeof player.playbackRate === 'number') {
+                        player.playbackRate = r;
+                    } else if (player.set) {
+                        player.set({ playbackRate: r });
+                    }
+                } catch (e) {
+                    // ignore errors while ramping
+                }
+            };
+
+            const timer = setInterval(() => {
+                step++;
+                const r = startRate + (delta * (step / steps));
+                applyRate(r);
+                if (step >= steps) {
+                    clearInterval(timer);
+                    // final set to ensure exact value
+                    applyRate(targetRate);
+                    resolve();
+                }
+            }, interval);
+        });
+    }
+
     /**
      * Apply tempo matching so Track B follows Track A's BPM.
-     * Uses playbackRate change + PitchShift compensation to preserve pitch.
+     * Uses a gentle ramp and pitch compensation. If required rate is large,
+     * only nudge toward it and log a warning for manual correction/time-stretch.
      */
-    applyTempoMatch() {
+    async applyTempoMatch() {
         if (!this.trackABPM || !this.trackBBPM || !this.trackBPlayer) return;
         const target = this.trackABPM;
         const source = this.trackBBPM;
         if (source <= 0) return;
 
         const rate = target / source;
+        if (!isFinite(rate) || rate <= 0) return;
 
-        // Set playbackRate robustly
-        try {
-            if (this.trackBPlayer.playbackRate && typeof this.trackBPlayer.playbackRate === 'object' && this.trackBPlayer.playbackRate.value !== undefined) {
-                this.trackBPlayer.playbackRate.value = rate;
-            } else if (typeof this.trackBPlayer.playbackRate === 'number') {
-                this.trackBPlayer.playbackRate = rate;
-            } else if (this.trackBPlayer.set) {
-                this.trackBPlayer.set({ playbackRate: rate });
-            }
-        } catch (e) {
-            console.warn('Unable to set playbackRate on Track B', e);
+        // Desired exact rate
+        const desiredRate = rate;
+
+        // If change is small (<= 10%) allow full change, otherwise nudge and warn.
+        const maxAutoChange = 0.10; // 10%
+        const change = Math.abs(desiredRate - 1);
+        let appliedRate;
+        if (change <= maxAutoChange) {
+            appliedRate = desiredRate;
+        } else {
+            // nudge towards desired but limit to +/- 10% to avoid artifacts
+            appliedRate = 1 + Math.sign(desiredRate - 1) * maxAutoChange;
+            console.warn(`BPM difference large (${(desiredRate).toFixed(3)}). Auto-nudging to ${appliedRate.toFixed(3)}. For large changes use time-stretching or manual match.`);
         }
 
+        // Clamp to safe extremes as extra guard
+        appliedRate = Math.max(0.7, Math.min(1.3, appliedRate));
+
+        // Smoothly ramp playbackRate
+        await this.smoothSetPlaybackRate(this.trackBPlayer, appliedRate, 1.2);
+
+
         // Compensate pitch change using PitchShift (semitones = 12*log2(rate))
-        const semitones = 12 * Math.log2(rate || 1);
-        const compensation = -semitones; // negate to cancel pitch change
+        const semitones = 12 * Math.log2(appliedRate || 1);
+        const compensation = -semitones;
         if (this.trackBPitch) {
             try {
                 if (this.trackBPitch.pitch && this.trackBPitch.pitch.value !== undefined) {
@@ -134,7 +293,25 @@ export class AudioEngine {
             }
         }
 
-        console.log(`Applied tempo match: TrackB rate=${rate.toFixed(3)}, pitch compensation=${compensation.toFixed(2)}st`);
+        // Maintain correct timing bookkeeping: recompute startTime so buffer position is preserved
+        try {
+            const now = Tone.now();
+            const pauseB = this.pauseState.B;
+            if (!pauseB.isPaused && this.trackBPlayer && this.trackBPlayer.buffer) {
+                // compute current buffer position using previous startTime and previous effective rate
+                // note: getPlaybackRate returns current rate (we already ramped to appliedRate)
+                // to estimate previous bufferPos we approximate using appliedRate (best-effort)
+                const prevRate = this.getPlaybackRate(this.trackBPlayer) || appliedRate;
+                const elapsed = now - pauseB.startTime;
+                const bufferPos = ((elapsed * prevRate) % this.trackBPlayer.buffer.duration + this.trackBPlayer.buffer.duration) % this.trackBPlayer.buffer.duration;
+                // after changing rate, set startTime to preserve bufferPos
+                pauseB.startTime = now - (bufferPos / appliedRate);
+            }
+        } catch (e) {
+            // non-fatal
+        }
+
+        console.log(`Applied tempo match: target=${target.toFixed(2)} BPM, source=${source.toFixed(2)} BPM, appliedRate=${appliedRate.toFixed(3)}, pitchComp=${compensation.toFixed(2)}st`);
     }
 
     async init() {
@@ -206,15 +383,14 @@ export class AudioEngine {
 
     /**
      * Align the two loaded tracks to the current transport beat on a clap.
-     * Performs a short crossfade while restarting track B (or A) at the computed offset
-     * so both tracks share the same phase relative to the transport BPM.
+     * Waits for tempo ramp if present, then nudges phase by restarting B at the computed offset.
      */
     async alignTracksOnClap() {
         if (!this.trackAPlayer || !this.trackBPlayer) return;
 
-        // Ensure tempos are matched before phase alignment
+        // First apply tempo match (may ramp)
         try {
-            this.applyTempoMatch();
+            await this.applyTempoMatch();
         } catch (e) {
             console.warn('applyTempoMatch error', e);
         }
@@ -223,15 +399,26 @@ export class AudioEngine {
         const bpm = Tone.Transport.bpm.value || 120;
         const beatDuration = 60 / bpm;
 
-        // Helper to compute playback position for a player
+        // Helper to compute playback position for a player, taking playbackRate into account
         const getPosition = (player, trackKey) => {
-            const pause = this.pauseState[trackKey];
-            if (pause.isPaused) {
-                return pause.pauseTime % player.buffer.duration;
+            try {
+                if (!player || !player.buffer) return 0;
+                const pause = this.pauseState[trackKey];
+                const bufferDur = player.buffer.duration || 0;
+                if (pause.isPaused) {
+                    // pauseTime already stores buffer-position in seconds (see pauseTrack)
+                    return pause.pauseTime % bufferDur;
+                }
+                // playing: elapsed = now - startTime
+                const elapsed = Tone.now() - pause.startTime;
+                const rate = this.getPlaybackRate(player) || 1;
+                // buffer position advances at rate * wall-time
+                const pos = ((elapsed * rate) % bufferDur + bufferDur) % bufferDur;
+                return pos;
+            } catch (e) {
+                console.warn('getPosition error', e);
+                return 0;
             }
-            // playing: elapsed = now - startTime
-            const elapsed = Tone.now() - pause.startTime;
-            return (elapsed % player.buffer.duration + player.buffer.duration) % player.buffer.duration;
         };
 
         try {
@@ -249,10 +436,18 @@ export class AudioEngine {
             if (delta < -beatDuration / 2) delta += beatDuration;
 
             // New position for B to align to A
-            const newPosB = (posB + delta + this.trackBPlayer.buffer.duration) % this.trackBPlayer.buffer.duration;
+            const bufferDurB = this.trackBPlayer.buffer ? this.trackBPlayer.buffer.duration : 0;
+            let newPosB = (posB + delta + bufferDurB) % bufferDurB;
 
+            // small safety: if delta is tiny (<10ms) skip restart
+            if (Math.abs(delta) < 0.01) {
+                console.log('Tracks already aligned (delta < 10ms)');
+                return;
+            }
+
+            // Restart B quickly with a short crossfade
             const now = Tone.now();
-            const fadeTime = 0.08; // 80ms quick crossfade
+            const fadeTime = 0.08;
 
             // Perform crossfade: fade out B, restart at new offset, fade in
             if (this.trackBGain && this.trackBPlayer) {
@@ -263,13 +458,14 @@ export class AudioEngine {
                     gainNode.linearRampToValueAtTime(0.0001, now + fadeTime);
 
                     // Stop and restart B shortly after fade
-                    const restartTime = now + fadeTime + 0.01;
                     setTimeout(() => {
                         try {
+                            // stop existing playback
                             this.trackBPlayer.stop();
-                            // start at computed offset
-                            this.pauseState.B.startTime = Tone.now() - newPosB;
+                            const rateB = this.getPlaybackRate(this.trackBPlayer) || 1;
+                            this.pauseState.B.startTime = Tone.now() - (newPosB / rateB);
                             this.trackBPlayer.start(undefined, newPosB);
+
                             // ensure gain is near 0 then ramp up
                             gainNode.setValueAtTime(0.0001, Tone.now());
                             gainNode.linearRampToValueAtTime(1.0, Tone.now() + fadeTime + 0.01);
@@ -280,7 +476,7 @@ export class AudioEngine {
                 }
             }
 
-            console.log(`Tracks aligned on clap: delta=${(delta*1000).toFixed(1)}ms`);
+            console.log(`Tracks aligned on clap: delta=${(delta * 1000).toFixed(1)}ms`);
         } catch (err) {
             console.error('Error aligning tracks on clap', err);
         }
@@ -486,9 +682,6 @@ export class AudioEngine {
                         console.warn('BPM estimation failed', e);
                     }
 
-                    // If both BPMs available we keep them for manual/clap-triggered matching.
-                    // Tempo matching will only run when a clap triggers `alignTracksOnClap()`.
-
                     resolve(player);
                 },
                 onerror: (error) => {
@@ -550,7 +743,11 @@ export class AudioEngine {
 
         if (player && player.state === 'started') {
             const elapsed = Tone.now() - pauseState.startTime;
-            pauseState.pauseTime = elapsed;
+            const rate = this.getPlaybackRate(player) || 1;
+            const duration = player.buffer ? player.buffer.duration : 0;
+            // store actual buffer position (in seconds), accounting for playbackRate
+            const bufferPos = duration > 0 ? ((elapsed * rate) % duration + duration) % duration : 0;
+            pauseState.pauseTime = bufferPos;
             pauseState.isPaused = true;
             player.stop();
 
@@ -559,7 +756,7 @@ export class AudioEngine {
             } else {
                 stateStore.setState({ trackBPlaying: false });
             }
-            console.log(`Track ${track} paused at ${elapsed.toFixed(2)}s`);
+            console.log(`Track ${track} paused at buffer position ${bufferPos.toFixed(2)}s (elapsed=${elapsed.toFixed(2)}s, rate=${rate.toFixed(3)})`);
         }
     }
 
@@ -572,16 +769,20 @@ export class AudioEngine {
 
         if (player && player.loaded) {
             let offset = 0;
+            const rate = this.getPlaybackRate(player) || 1;
 
             if (pauseState.isPaused && pauseState.pauseTime > 0) {
-                const duration = player.buffer.duration;
-                offset = pauseState.pauseTime % duration;
-                console.log(`Track ${track} resuming from ${offset.toFixed(2)}s`);
+                // pauseTime stores the buffer position in seconds already
+                const duration = player.buffer ? player.buffer.duration : 0;
+                offset = duration > 0 ? pauseState.pauseTime % duration : 0;
+                console.log(`Track ${track} resuming from ${offset.toFixed(2)}s (rate=${rate.toFixed(3)})`);
             } else {
                 console.log(`Track ${track} starting from beginning`);
             }
 
-            pauseState.startTime = Tone.now() - offset;
+            // IMPORTANT: startTime must satisfy elapsed * rate = bufferPosition
+            // therefore startTime = now - (bufferPosition / rate)
+            pauseState.startTime = Tone.now() - (offset / rate);
             pauseState.isPaused = false;
             player.start(undefined, offset);
 
