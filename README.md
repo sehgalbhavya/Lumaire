@@ -318,6 +318,7 @@ Please follow the existing code style and describe your changes clearly in the P
 
 ---
 
+<!--
 ## 👥 Team
 
 This project was developed as part of **DT2140 – Multimodal Interaction and Interfaces** at **KTH Royal Institute of Technology**.
@@ -328,6 +329,7 @@ This project was developed as part of **DT2140 – Multimodal Interaction and In
 | **B** | Audio & Sequencer Lead |
 | **C** | Three.js Visual Lead |
 | **D** | Integration, UX & Evaluation |
+-->
 
 ---
 
