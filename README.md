@@ -280,7 +280,7 @@ DT2140-Project/
 
 ## 🗺️ Roadmap
 
-### ✅ Completed (Weeks 1–2)
+### Weeks 1–2
 - [x] MediaPipe Hands integration
 - [x] Pinch, fist, and open-hand gesture detection
 - [x] Left-hand vertical row selection
@@ -290,17 +290,17 @@ DT2140-Project/
 - [x] Crossfader, master volume, bass, treble controls
 - [x] Keyboard fallback controls
 
-### 🔄 In Progress (Week 3)
-- [ ] Three.js 3D beat grid
-- [ ] 3D hand cursors mapped to world space
-- [ ] Two-hand distance → real-time tempo control
-- [ ] Two-hand rotation → filter sweep (Effects Mode)
+### Week 3
+- [x] Three.js 3D beat grid
+- [x] 3D hand cursors mapped to world space
+- [x] Two-hand distance → real-time tempo control
+- [x] Two-hand rotation → filter sweep (Effects Mode)
 
-### 📋 Planned (Week 4)
-- [ ] Gesture smoothing & jitter reduction polish
-- [ ] Mode indicator animations
-- [ ] HCI user evaluation & usability testing
-- [ ] Demo video and presentation slides
+### Week 4
+- [x] Gesture smoothing & jitter reduction polish
+- [x] Mode indicator animations
+- [x] HCI user evaluation & usability testing
+- [x] Demo video and presentation slides
 
 ---
 
