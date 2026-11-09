@@ -1,348 +1,159 @@
 <div align="center">
 
-![Lumaire Banner](public/banner.png)
+![Lumaire: a DJ controller you play in mid-air](public/banner.png)
 
-# 🎛️ Lumaire
+# Lumaire
 
-### *Control Sound with Light & Motion*
+### A DJ controller you play in mid-air
 
-**A gesture-driven, browser-native DJ controller powered by computer vision**
+Mix two tracks with nothing but your hands and a webcam, right in the browser.
 
-[![Built with Vite](https://img.shields.io/badge/Built%20with-Vite-646CFF?logo=vite&logoColor=white)](https://vite.dev)
-[![MediaPipe Hands](https://img.shields.io/badge/MediaPipe-Hands-00BCD4?logo=google&logoColor=white)](https://mediapipe.dev)
-[![Tone.js](https://img.shields.io/badge/Audio-Tone.js-FF4081)](https://tonejs.github.io)
-[![Three.js](https://img.shields.io/badge/3D-Three.js-049EF4?logo=threedotjs&logoColor=white)](https://threejs.org)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white)](https://typescriptlang.org)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+**[Try the live demo](https://sehgalbhavya.github.io/Lumaire/)** · **[Watch the video](https://www.youtube.com/watch?v=3lUEl5AKHR8)**
+
+[![MediaPipe Hands](https://img.shields.io/badge/Hand%20tracking-MediaPipe-0A0A0A)](https://developers.google.com/mediapipe)
+[![Tone.js](https://img.shields.io/badge/Audio-Tone.js-0A0A0A)](https://tonejs.github.io)
+[![Vite](https://img.shields.io/badge/Built%20with-Vite-0A0A0A?logo=vite&logoColor=white)](https://vite.dev)
+[![JavaScript](https://img.shields.io/badge/JavaScript-ES%20modules-0A0A0A?logo=javascript&logoColor=white)](https://developer.mozilla.org/docs/Web/JavaScript)
 
 </div>
 
 ---
 
-## 📖 Table of Contents
+## The idea
 
-- [About the Project](#about-the-project)
-- [Demo](#demo)
-- [Video Demo](#-video-demo)
-- [Features](#features)
-- [Architecture](#architecture)
-- [Tech Stack](#tech-stack)
-- [Getting Started](#getting-started)
-  - [Prerequisites](#prerequisites)
-  - [Installation](#installation)
-  - [Running Locally](#running-locally)
-- [How It Works](#how-it-works)
-  - [Gesture Reference](#gesture-reference)
-  - [Keyboard Fallbacks](#keyboard-fallbacks)
-- [Project Structure](#project-structure)
-- [Roadmap](#roadmap)
-- [Contributing](#contributing)
-- [Team](#team)
-- [License](#license)
+A DJ mixer is a wall of knobs and faders. Every one of them is something your hands already know how to do: pinch, slide, raise, clench.
+
+Lumaire takes the hardware away and keeps the hands. A webcam tracks both of your hands in real time, and each gesture maps onto a control on a two-deck mixer. You pinch to start a track, slide to crossfade, and clap to bring the two songs onto the same beat. There is nothing to install and nothing to plug in.
+
+The question behind it is simple: **can gestures in mid-air feel as direct as touching a real mixer?**
 
 ---
 
-## 🎯 About the Project
-
-**Lumaire** is a touchless, webcam-powered DJ controller built entirely in the browser. Using your hands as the interface, you can play, pause, crossfade, and apply EQ effects to two audio tracks — no physical hardware required.
-
-The project was built as part of the **DT2140** course at KTH Royal Institute of Technology, exploring novel Human-Computer Interaction (HCI) paradigms through gesture-based musical expression.
-
-> *"What if your body was the instrument?"*
-
-Lumaire answers that question by transforming real-time hand tracking data into expressive, low-latency audio control — all inside a single browser tab.
-
----
-
-## 🎬 Demo
-
-> **Live demo coming soon!**
-
-To try it yourself right now, clone the repo and follow the [Getting Started](#getting-started) guide below. All you need is a webcam.
-
----
-
-## 📹 Video Demo
-
-> Click the thumbnail below to watch the intro video on YouTube:
+## Demo
 
 <div align="center">
 
-[![Watch the Lumaire Demo on YouTube](https://img.youtube.com/vi/3lUEl5AKHR8/maxresdefault.jpg)](https://www.youtube.com/watch?v=3lUEl5AKHR8)
-
-*👆 Click to watch — see Lumaire in action with live gesture control*
+[![Watch the Lumaire demo on YouTube](https://img.youtube.com/vi/3lUEl5AKHR8/maxresdefault.jpg)](https://www.youtube.com/watch?v=3lUEl5AKHR8)
 
 </div>
 
+To try it yourself, open the **[live demo](https://sehgalbhavya.github.io/Lumaire/)** in Chrome or Edge:
+
+1. Allow camera access when the browser asks.
+2. Click anywhere on the page once to switch on audio (browsers require this).
+3. Load a song into **Track A** and another into **Track B**.
+4. Raise both hands so the camera can see them, and start mixing.
 
 ---
 
-## ✨ Features
+## How you play it
 
-| Feature | Description |
-|--------|-------------|
-| 🖐️ **Real-time Hand Tracking** | Detects both hands simultaneously using MediaPipe Hands at 30+ FPS |
-| 🎶 **Dual-track Playback** | Load two audio tracks (A & B) and control them independently |
-| 🎚️ **Gesture Crossfader** | Move your left hand left/right to blend between tracks in real time |
-| 🔊 **Master Volume Control** | Raise/lower your right hand to adjust the master output level |
-| 🥁 **Bass & Treble EQ** | Fist gestures apply real-time EQ curves to the audio signal |
-| 🎤 **Clap Gesture** | Trigger special actions with a hands-together clap |
-| ⌨️ **Keyboard Fallbacks** | Full keyboard control mapping for accessibility and testing |
-| 🌐 **No Install Needed** | Runs entirely in-browser — zero plugins, zero downloads |
+Your left hand runs **Deck A** and the crossfader. Your right hand runs **Deck B** and the master volume. A quick pinch is a tap; a pinch you hold and move is a drag.
+
+| | Gesture | What it does |
+|---|---|---|
+| **Left hand** | Quick pinch | Play or pause Track A |
+| | Pinch and slide left or right | Move the crossfader between A and B |
+| | Make a fist and move up or down | Treble up or down |
+| **Right hand** | Quick pinch | Play or pause Track B |
+| | Pinch and move up or down | Master volume |
+| | Make a fist and move up or down | Bass up or down |
+| **Both hands** | Clap | Beat-match: Track B is sped up or slowed down to Track A's tempo and lined up on the beat |
+
+### No camera? Use the keyboard or mouse
+
+| Input | Action |
+|---|---|
+| `P` | Play or pause both tracks |
+| Hold `A` + `Space` | Play or pause Track A |
+| Hold `B` + `Space` | Play or pause Track B |
+| `↑` / `↓` | Master volume |
+| `←` / `→` | Crossfader |
+| Hold `T` + `↑` / `↓` | Treble |
+| Hold `B` + `↑` / `↓` | Bass |
+| `C` | Clap cue (visual feedback only) |
+| Click Master, Bass or Treble | Nudge that value up (hold `Shift` to nudge it down) |
+| Click the Crossfader display | Jump the crossfader to that spot |
 
 ---
 
-## 🏗️ Architecture
+## How it works
 
-Lumaire is built around four decoupled, event-driven engines that communicate through a shared reactive state store:
+Lumaire is split into four small engines that never call each other directly. They only read from and write to one shared state store, so the hand tracking, the sound and the visuals can each run at their own pace.
 
 ```
-┌──────────────────────────────────────────────────────────┐
-│                      MediaPipe Hands                     │
-│              (webcam → 21 landmarks per hand)            │
-└─────────────────────────┬────────────────────────────────┘
-                          │
-                          ▼
-┌─────────────────────────────────────────────────────────┐
-│                   🤚 Gesture Engine                      │
-│  • Pinch detection    • Fist / Open hand                │
-│  • Position tracking  • Clap detection                  │
-│  • Smoothing, debouncing, low-pass filters              │
-└─────────────────────────┬───────────────────────────────┘
-                          │  writes
-                          ▼
-┌─────────────────────────────────────────────────────────┐
-│                   🗄️  State Store                        │
-│  masterVolume · crossfaderPosition · bass · treble      │
-│  trackAPlaying · trackBPlaying · mode · lastClapTs      │
-└──────┬──────────────────────────────────┬───────────────┘
-       │  reads                           │  reads
-       ▼                                  ▼
-┌──────────────────┐            ┌───────────────────────┐
-│  🔊 Audio Engine  │            │  🎨 Visual Engine      │
-│  Tone.js         │            │  Three.js / Canvas 2D │
-│  • Dual buffers  │            │  • Hand cursors        │
-│  • EQ filters    │            │  • 3D beat grid        │
-│  • Crossfader    │            │  • HUD overlays        │
-│  • Transport     │            │  • Debug panel         │
-└──────────────────┘            └───────────────────────┘
+ Webcam ──► MediaPipe Hands (21 landmarks per hand)
+                     │
+                     ▼
+            ┌─────────────────┐
+            │ Gesture engine  │  pinch, fist and clap detection,
+            │                 │  tap vs. drag, mirror correction
+            └────────┬────────┘
+                     │ writes
+                     ▼
+            ┌─────────────────┐
+            │   State store   │  volume · crossfader · bass · treble
+            │                 │  deck A/B playing · last clap
+            └───┬─────────┬───┘
+          reads │         │ reads
+                ▼         ▼
+   ┌────────────────┐  ┌──────────────────┐
+   │  Audio engine  │  │  Visual engine   │
+   │  Tone.js       │  │  Canvas 2D       │
+   │  two decks,    │  │  hand skeletons, │
+   │  EQ, fader,    │  │  mixer HUD,      │
+   │  beat-matching │  │  live spectrum   │
+   └────────────────┘  └──────────────────┘
 ```
 
-**Key Design Principle:** Audio timing is completely decoupled from the rendering frame rate. The audio engine uses Tone.js's Web Audio scheduler to ensure sample-accurate playback regardless of GPU load or animation frame drops.
+A few details worth knowing:
+
+- **Sound never waits for graphics.** Playback is scheduled on the Web Audio clock through Tone.js, so the music stays steady even if the video frame rate drops.
+- **Beat-matching on a clap.** When a track loads, its tempo is estimated from its rhythm (an autocorrelation over 60 to 180 BPM). A clap smoothly adjusts Track B's speed to match Track A, within ±10% so it doesn't sound warped, then shifts it so the beats line up.
+- **EQ like a real mixer.** Bass and treble are shelf filters (below 200 Hz and above 3 kHz) with ±12 dB of range.
+- **Gestures that don't misfire.** A fist always wins over a pinch, a pinch has to move before it counts as a drag, and a clap must be a fast approach with a short cooldown, so resting your hands together doesn't trigger it.
 
 ---
 
-## 🛠️ Tech Stack
+## Run it locally
 
-| Layer | Technology | Purpose |
-|-------|-----------|---------|
-| **Build** | [Vite 7](https://vite.dev) + TypeScript | Fast dev server, ESM bundling |
-| **Hand Tracking** | [@mediapipe/hands](https://mediapipe.dev) | 21-point 3D landmark detection |
-| **Audio** | [Tone.js 15](https://tonejs.github.io) | Web Audio scheduling, EQ, transport |
-| **3D Visuals** | [Three.js 0.181](https://threejs.org) | 3D beat grid, hand cursors |
-| **Camera** | [@mediapipe/camera_utils](https://mediapipe.dev) | Webcam capture pipeline |
-| **Language** | JavaScript (ES Modules) | Application logic |
-
----
-
-## 🚀 Getting Started
-
-### Prerequisites
-
-Before you begin, make sure you have the following installed:
-
-- **Node.js** ≥ 18.0 — [Download](https://nodejs.org)
-- **npm** ≥ 9.0 (included with Node.js)
-- A browser with **WebRTC support** (Chrome or Edge recommended)
-- A **webcam** for gesture control (optional — keyboard fallbacks available)
-
-### Installation
-
-1. **Clone the repository:**
+You need [Node.js](https://nodejs.org) 20 or newer and a webcam (optional, thanks to the keyboard controls).
 
 ```bash
-git clone https://github.com/sehgalbhavya/DT2140-Project.git
-cd DT2140-Project
-```
-
-2. **Install dependencies:**
-
-```bash
+git clone https://github.com/sehgalbhavya/Lumaire.git
+cd Lumaire
 npm install
-```
-
-### Running Locally
-
-Start the development server:
-
-```bash
 npm run dev
 ```
 
-Then open your browser and navigate to:
+Then open the address Vite prints (it ends in `/Lumaire/`).
 
-```
-http://localhost:5173
-```
-
-> ⚠️ **Webcam Permission Required:** The browser will ask for camera access when the page loads. This is needed for hand tracking. Grant access and position yourself so both hands are visible.
-
-**Build for production:**
-
-```bash
-npm run build
-```
-
-**Preview the production build:**
-
-```bash
-npm run preview
-```
+To build for production, run `npm run build`. Every push to `main` is built and published to GitHub Pages automatically.
 
 ---
 
-## 🤚 How It Works
-
-### Gesture Reference
-
-The system detects both hands simultaneously and maps gestures to audio controls:
-
-#### Right Hand 🖐️ (Track B + Volume)
-
-| Gesture | Action |
-|---------|--------|
-| ✌️ Pinch | Toggle Track B play / pause |
-| 🤙 Pinch + Move ↑↓ | Adjust Master Volume |
-| ✊ Fist + Move ↑↓ | Adjust Bass EQ |
-
-#### Left Hand 🖐️ (Track A + Crossfader)
-
-| Gesture | Action |
-|---------|--------|
-| ✌️ Pinch | Toggle Track A play / pause |
-| 🤙 Pinch + Move ←→ | Move Crossfader (blend A ↔ B) |
-| ✊ Fist + Move ↑↓ | Adjust Treble EQ |
-
-#### Both Hands 👐
-
-| Gesture | Action |
-|---------|--------|
-| 👏 Clap (hands together) | Trigger action / Beat alignment |
-
-#### Modes
-
-The system operates in three mutually exclusive modes, preventing accidental input:
-
-- **Edit Mode** — Default, gesture-based mixing
-- **Tempo Mode** — Two-hand distance controls BPM
-- **Effects Mode** — Two-hand rotation controls effect parameters
-
-### Keyboard Fallbacks
-
-Full keyboard control is available for accessibility and testing (no webcam needed):
-
-| Key | Action |
-|-----|--------|
-| `P` | Toggle all tracks (play / pause) |
-| `A` + `Space` | Toggle Track A |
-| `B` + `Space` | Toggle Track B |
-| `↑` / `↓` | Master Volume up / down |
-| `←` / `→` | Crossfader left / right |
-| `T` + `↑` / `↓` | Treble up / down |
-| `B` + `↑` / `↓` | Bass up / down |
-| `C` | Trigger Clap action |
-
-You can also **click directly on the status displays** (Master, Crossfader, Bass, Treble) to adjust values with the mouse.
-
----
-
-## 📁 Project Structure
+## Project structure
 
 ```
-DT2140-Project/
+Lumaire/
+├── index.html            App shell and mixer panel
 ├── public/
-│   └── banner.png          # Project banner image
+│   └── banner.png        README banner
 ├── src/
-│   ├── main.js             # App entry point, event wiring, keyboard controls
-│   ├── gestureEngine.js    # MediaPipe landmark → gesture classification
-│   ├── audioEngine.js      # Tone.js dual-track playback, EQ, crossfader
-│   ├── visualEngine.js     # Three.js / Canvas 2D rendering, HUD
-│   ├── stateStore.js       # Reactive state store (subscribe/getState/setState)
-│   └── style.css           # UI styling & layout
-├── index.html              # App shell with DJ control panel
-├── package.json
-├── tsconfig.json
-├── context.md              # Detailed system design spec
-└── project-plan.md         # 4-week development timeline
+│   ├── main.js           Wiring, track loading, keyboard and mouse controls
+│   ├── gestureEngine.js  Turns hand landmarks into pinch, fist and clap gestures
+│   ├── audioEngine.js    Two decks, EQ, crossfader, tempo detection, beat-matching
+│   ├── visualEngine.js   Draws the video, hand skeletons, mixer HUD and spectrum
+│   ├── stateStore.js     Shared state with subscribe and update
+│   └── style.css         Interface styling
+└── .github/workflows/
+    └── deploy-pages.yml  Builds and deploys to GitHub Pages
 ```
-
----
-
-## 🗺️ Roadmap
-
-### Weeks 1–2
-- [x] MediaPipe Hands integration
-- [x] Pinch, fist, and open-hand gesture detection
-- [x] Left-hand vertical row selection
-- [x] Gesture Engine, State Store, Audio Engine, Visual Engine architecture
-- [x] 2D beat grid UI
-- [x] Dual-track audio loading and playback
-- [x] Crossfader, master volume, bass, treble controls
-- [x] Keyboard fallback controls
-
-### Week 3
-- [x] Three.js 3D beat grid
-- [x] 3D hand cursors mapped to world space
-- [x] Two-hand distance → real-time tempo control
-- [x] Two-hand rotation → filter sweep (Effects Mode)
-
-### Week 4
-- [x] Gesture smoothing & jitter reduction polish
-- [x] Mode indicator animations
-- [x] HCI user evaluation & usability testing
-- [x] Demo video and presentation slides
-
----
-
-## 🤝 Contributing
-
-Contributions, issues and feature requests are welcome!
-
-1. **Fork** the repository
-2. **Create** your feature branch: `git checkout -b feature/amazing-feature`
-3. **Commit** your changes: `git commit -m 'feat: add amazing feature'`
-4. **Push** to the branch: `git push origin feature/amazing-feature`
-5. **Open** a Pull Request
-
-Please follow the existing code style and describe your changes clearly in the PR description.
-
----
-
-<!--
-## 👥 Team
-
-This project was developed as part of **DT2140 – Multimodal Interaction and Interfaces** at **KTH Royal Institute of Technology**.
-
-| Member | Role |
-|--------|------|
-| **A** | Gesture Recognition Lead |
-| **B** | Audio & Sequencer Lead |
-| **C** | Three.js Visual Lead |
-| **D** | Integration, UX & Evaluation |
--->
-
----
-
-## 📄 License
-
-This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.
 
 ---
 
 <div align="center">
 
-Made with ❤️ at KTH Royal Institute of Technology
-
-*DT2140 – Multimodal Interaction and Interfaces*
+<sub>Lumaire began as a project in a multimodal interaction course at KTH Royal Institute of Technology.</sub>
 
 </div>
